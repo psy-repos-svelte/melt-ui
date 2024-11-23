@@ -5,7 +5,7 @@
 		type ComboboxOptionProps,
 		type CreateComboboxProps,
 	} from '$lib/index.js';
-	import { removeUndefined } from '../utils';
+	import { removeUndefined } from '../utils.js';
 
 	export let options: ComboboxOptionProps[] = [
 		{ label: '1234', value: { id: 1234, station: undefined, lastTransmission: '2023-01-01' } },
@@ -18,7 +18,7 @@
 	export let defaultValue: string | undefined = undefined;
 	export let ids: CreateComboboxProps<unknown>['ids'] = undefined;
 	export let onOutsideClick: CreateComboboxProps<unknown>['onOutsideClick'] = undefined;
-	export let closeOnEscape: CreateComboboxProps<unknown>['closeOnEscape'] = undefined;
+	export let escapeBehavior: CreateComboboxProps<unknown>['escapeBehavior'] = undefined;
 
 	const {
 		elements: { menu, input, option, label },
@@ -34,7 +34,7 @@
 				: undefined,
 			ids,
 			onOutsideClick,
-			closeOnEscape,
+			escapeBehavior,
 		})
 	);
 
@@ -44,6 +44,8 @@
 </script>
 
 <main>
+	<button on:click={() => open.update((curr) => !curr)} data-testid="toggle-btn">Toggle Open</button
+	>
 	<!-- svelte-ignore a11y-label-has-associated-control - $label contains the 'for' attribute -->
 	<label use:melt={$label} data-testid="label">Label</label>
 
@@ -65,4 +67,6 @@
 		</div>
 	</ul>
 	<div data-testid="outside-click" />
+
+	<input type="text" data-testid="other-input" aria-label="other input" />
 </main>

@@ -1,8 +1,8 @@
 import { render, act, waitFor } from '@testing-library/svelte';
 import { axe } from 'jest-axe';
 import { describe } from 'vitest';
-import userEvent from '@testing-library/user-event';
-import { testKbd as kbd } from '../utils';
+import { userEvent } from '@testing-library/user-event';
+import { testKbd as kbd } from '../utils.js';
 import SelectTest from './SelectTest.svelte';
 
 const OPEN_KEYS = [kbd.ENTER, kbd.SPACE];
@@ -170,9 +170,9 @@ describe('Select', () => {
 		await waitFor(() => expect(trigger).toHaveTextContent('Vanilla'), { timeout: 500 });
 	});
 
-	test('Respects the `closeOnEscape` prop', async () => {
+	test('Respects the `escapeBehavior` prop', async () => {
 		const user = userEvent.setup();
-		const { getByTestId } = render(SelectTest, { closeOnEscape: false });
+		const { getByTestId } = render(SelectTest, { escapeBehavior: 'ignore' });
 		const trigger = getByTestId('trigger');
 		const menu = getByTestId('menu');
 
@@ -235,6 +235,12 @@ describe('Select', () => {
 		expect(trigger.id).toBe(ids.trigger);
 		expect(menu.id).toBe(ids.menu);
 		expect(label.id).toBe(ids.label);
+	});
+
+	test('Applies type="button" to the select trigger', async () => {
+		const { getByTestId } = render(SelectTest, { escapeBehavior: 'ignore' });
+		const trigger = getByTestId('trigger');
+		expect(trigger).toHaveAttribute('type', 'button');
 	});
 
 	test.todo('Disabled select cannot be opened');

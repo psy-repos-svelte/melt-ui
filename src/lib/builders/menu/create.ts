@@ -1,16 +1,15 @@
 import { createSeparator } from '$lib/builders/index.js';
-import { usePopper } from '$lib/internal/actions/index.js';
+import { usePopper, usePortal } from '$lib/internal/actions/index.js';
 import {
 	FIRST_LAST_KEYS,
 	SELECTION_KEYS,
 	addEventListener,
 	addHighlight,
 	addMeltEventListener,
-	builder,
+	makeElement,
 	createElHelpers,
 	createTypeaheadSearch,
 	derivedVisible,
-	derivedWithUnsubscribe,
 	disabledAttr,
 	effect,
 	executeCallbacks,
@@ -32,12 +31,16 @@ import {
 	sleep,
 	styleToString,
 	toWritableStores,
+	portalAttr,
+	type Polygon,
+	isPointerInGraceArea,
 } from '$lib/internal/helpers/index.js';
 import type { Defaults, MeltActionReturn, TextDirection } from '$lib/internal/types.js';
 import { tick } from 'svelte';
-import { derived, get, writable, type Writable } from 'svelte/store';
+import { derived, writable, type Writable } from 'svelte/store';
 
 import { safeOnMount } from '$lib/internal/helpers/lifecycle.js';
+import { withGet, type WithGet } from '$lib/internal/helpers/withGet.js';
 import type { MenuEvents } from './events.js';
 import type {
 	Selector,
@@ -68,7 +71,7 @@ const defaults = {
 		placement: 'bottom',
 	},
 	preventScroll: true,
-	closeOnEscape: true,
+	escapeBehavior: 'close',
 	closeOnOutsideClick: true,
 	portal: 'body',
 	loop: false,
@@ -77,6 +80,7 @@ const defaults = {
 	typeahead: true,
 	closeOnItemClick: true,
 	onOutsideClick: undefined,
+	preventTextSelectionOverflow: true,
 } satisfies Defaults<_CreateMenuProps>;
 
 export function createMenuBuilder(opts: _MenuBuilderOptions) {
@@ -86,7 +90,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		preventScroll,
 		arrowSize,
 		positioning,
-		closeOnEscape,
+		escapeBehavior,
 		closeOnOutsideClick,
 		portal,
 		forceVisible,
@@ -96,6 +100,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		disableFocusFirstItem,
 		closeOnItemClick,
 		onOutsideClick,
+		preventTextSelectionOverflow,
 	} = opts.rootOptions;
 
 	const rootOpen = opts.rootOpen;
@@ -116,31 +121,30 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 	 * This is used to determine how we handle focus on open behavior differently
 	 * than when the user is using the mouse.
 	 */
-	const isUsingKeyboard = writable(false);
+	const isUsingKeyboard = withGet.writable(false);
 
 	/**
 	 * Stores used to manage the grace area for submenus. This prevents us
 	 * from closing a submenu when the user is moving their mouse from the
 	 * trigger to the submenu.
 	 */
-	const lastPointerX = writable(0);
-	const pointerGraceIntent = writable<GraceIntent | null>(null);
-	const pointerDir = writable<Side>('right');
+	const lastPointerX = withGet(writable(0));
+	const pointerGraceIntent = withGet(writable<GraceIntent | null>(null));
+	const pointerDir = withGet(writable<Side>('right'));
 
 	/**
 	 * Track currently focused item in the menu.
 	 */
-	const currentFocusedItem = writable<HTMLElement | null>(null);
+	const currentFocusedItem = withGet(writable<HTMLElement | null>(null));
 
-	const pointerMovingToSubmenu = derivedWithUnsubscribe(
-		[pointerDir, pointerGraceIntent],
-		([$pointerDir, $pointerGraceIntent]) => {
+	const pointerMovingToSubmenu = withGet(
+		derived([pointerDir, pointerGraceIntent], ([$pointerDir, $pointerGraceIntent]) => {
 			return (e: PointerEvent) => {
 				const isMovingTowards = $pointerDir === $pointerGraceIntent?.side;
 
 				return isMovingTowards && isPointerInGraceArea(e, $pointerGraceIntent?.area);
 			};
-		}
+		})
 	);
 
 	const { typed, handleTypeaheadSearch } = createTypeaheadSearch();
@@ -153,19 +157,24 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		activeTrigger: rootActiveTrigger,
 	});
 
-	const rootMenu = builder(name(), {
-		stores: [isVisible, portal, rootIds.menu, rootIds.trigger],
-		returned: ([$isVisible, $portal, $rootMenuId, $rootTriggerId]) => {
+	const rootMenu = makeElement(name(), {
+		stores: [isVisible, rootOpen, rootActiveTrigger, portal, rootIds.menu, rootIds.trigger],
+		returned: ([
+			$isVisible,
+			$rootOpen,
+			$rootActiveTrigger,
+			$portal,
+			$rootMenuId,
+			$rootTriggerId,
+		]) => {
 			return {
 				role: 'menu',
 				hidden: $isVisible ? undefined : true,
-				style: styleToString({
-					display: $isVisible ? undefined : 'none',
-				}),
+				style: $isVisible ? undefined : styleToString({ display: 'none' }),
 				id: $rootMenuId,
 				'aria-labelledby': $rootTriggerId,
-				'data-state': $isVisible ? 'open' : 'closed',
-				'data-portal': $portal ? '' : undefined,
+				'data-state': $rootOpen && $rootActiveTrigger ? 'open' : 'closed',
+				'data-portal': portalAttr($portal),
 				tabindex: -1,
 			} as const;
 		},
@@ -173,48 +182,39 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 			let unsubPopper = noop;
 
 			const unsubDerived = effect(
-				[isVisible, rootActiveTrigger, positioning, closeOnOutsideClick, portal, closeOnEscape],
-				([
-					$isVisible,
-					$rootActiveTrigger,
-					$positioning,
-					$closeOnOutsideClick,
-					$portal,
-					$closeOnEscape,
-				]) => {
+				[isVisible, rootActiveTrigger, positioning, closeOnOutsideClick, portal],
+				([$isVisible, $rootActiveTrigger, $positioning, $closeOnOutsideClick, $portal]) => {
 					unsubPopper();
 					if (!$isVisible || !$rootActiveTrigger) return;
 					tick().then(() => {
+						unsubPopper();
 						setMeltMenuAttribute(node, selector);
-						const popper = usePopper(node, {
+						unsubPopper = usePopper(node, {
 							anchorElement: $rootActiveTrigger,
 							open: rootOpen,
 							options: {
 								floating: $positioning,
-								clickOutside: $closeOnOutsideClick
-									? {
-											handler: (e) => {
-												get(onOutsideClick)?.(e);
-												if (e.defaultPrevented) return;
+								modal: {
+									closeOnInteractOutside: $closeOnOutsideClick,
+									shouldCloseOnInteractOutside: (e) => {
+										onOutsideClick.get()?.(e);
+										if (e.defaultPrevented) return false;
 
-												if (
-													isHTMLElement($rootActiveTrigger) &&
-													!$rootActiveTrigger.contains(e.target as Element)
-												) {
-													rootOpen.set(false);
-													$rootActiveTrigger.focus();
-												}
-											},
-									  }
-									: null,
+										if (
+											isHTMLElement($rootActiveTrigger) &&
+											$rootActiveTrigger.contains(e.target as Element)
+										) {
+											return false;
+										}
+										return true;
+									},
+									onClose: () => rootOpen.set(false),
+								},
 								portal: getPortalDestination(node, $portal),
-								escapeKeydown: $closeOnEscape ? undefined : null,
+								escapeKeydown: { behaviorType: escapeBehavior },
+								preventTextSelectionOverflow: { enabled: preventTextSelectionOverflow },
 							},
-						});
-
-						if (popper && popper.destroy) {
-							unsubPopper = popper.destroy;
-						}
+						}).destroy;
 					});
 				}
 			);
@@ -233,7 +233,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 
 					if (!isKeyDownInside) return;
 					if (FIRST_LAST_KEYS.includes(e.key)) {
-						handleMenuNavigation(e, get(loop) ?? false);
+						handleMenuNavigation(e, loop.get() ?? false);
 					}
 
 					/**
@@ -252,7 +252,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 					 */
 					const isCharacterKey = e.key.length === 1;
 					const isModifierKey = e.ctrlKey || e.altKey || e.metaKey;
-					if (!isModifierKey && isCharacterKey && get(typeahead) === true) {
+					if (!isModifierKey && isCharacterKey && typeahead.get() === true) {
 						handleTypeaheadSearch(e.key, getMenuItems(menuEl));
 					}
 				})
@@ -267,7 +267,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		},
 	});
 
-	const rootTrigger = builder(name('trigger'), {
+	const rootTrigger = makeElement(name('trigger'), {
 		stores: [rootOpen, rootIds.menu, rootIds.trigger],
 		returned: ([$rootOpen, $rootMenuId, $rootTriggerId]) => {
 			return {
@@ -287,7 +287,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 
 			const unsub = executeCallbacks(
 				addMeltEventListener(node, 'click', (e) => {
-					const $rootOpen = get(rootOpen);
+					const $rootOpen = rootOpen.get();
 					const triggerEl = e.currentTarget;
 					if (!isHTMLElement(triggerEl)) return;
 
@@ -320,25 +320,55 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		},
 	});
 
-	const rootArrow = builder(name('arrow'), {
+	const rootArrow = makeElement(name('arrow'), {
 		stores: arrowSize,
-		returned: ($arrowSize) => ({
-			'data-arrow': true,
-			style: styleToString({
-				position: 'absolute',
-				width: `var(--arrow-size, ${$arrowSize}px)`,
-				height: `var(--arrow-size, ${$arrowSize}px)`,
-			}),
-		}),
+		returned: ($arrowSize) =>
+			({
+				'data-arrow': true,
+				style: styleToString({
+					position: 'absolute',
+					width: `var(--arrow-size, ${$arrowSize}px)`,
+					height: `var(--arrow-size, ${$arrowSize}px)`,
+				}),
+			} as const),
 	});
 
-	const item = builder(name('item'), {
+	const overlay = makeElement(name('overlay'), {
+		stores: [isVisible],
+		returned: ([$isVisible]) => {
+			return {
+				hidden: $isVisible ? undefined : true,
+				tabindex: -1,
+				style: styleToString({
+					display: $isVisible ? undefined : 'none',
+				}),
+				'aria-hidden': 'true',
+				'data-state': stateAttr($isVisible),
+			} as const;
+		},
+		action: (node: HTMLElement) => {
+			const unsubPortal = effect([portal], ([$portal]) => {
+				if ($portal === null) return noop;
+				const portalDestination = getPortalDestination(node, $portal);
+				if (portalDestination === null) return noop;
+				return usePortal(node, portalDestination).destroy;
+			});
+
+			return {
+				destroy() {
+					unsubPortal();
+				},
+			};
+		},
+	});
+
+	const item = makeElement(name('item'), {
 		returned: () => {
 			return {
 				role: 'menuitem',
 				tabindex: -1,
 				'data-orientation': 'vertical',
-			};
+			} as const;
 		},
 		action: (node: HTMLElement): MeltActionReturn<MenuEvents['item']> => {
 			setMeltMenuAttribute(node, selector);
@@ -366,7 +396,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 						return;
 					}
 
-					if (get(closeOnItemClick)) {
+					if (closeOnItemClick.get()) {
 						// Allows forms to submit before the menu is removed from the DOM
 						sleep(1).then(() => {
 							rootOpen.set(false);
@@ -396,20 +426,22 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		},
 	});
 
-	const group = builder(name('group'), {
+	const group = makeElement(name('group'), {
 		returned: () => {
-			return (groupId: string) => ({
-				role: 'group',
-				'aria-labelledby': groupId,
-			});
+			return (groupId: string) =>
+				({
+					role: 'group',
+					'aria-labelledby': groupId,
+				} as const);
 		},
 	});
 
-	const groupLabel = builder(name('group-label'), {
+	const groupLabel = makeElement(name('group-label'), {
 		returned: () => {
-			return (groupId: string) => ({
-				id: groupId,
-			});
+			return (groupId: string) =>
+				({
+					id: groupId,
+				} as const);
 		},
 	});
 
@@ -424,7 +456,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		const checked = overridable(checkedWritable, withDefaults.onCheckedChange);
 		const disabled = writable(withDefaults.disabled);
 
-		const checkboxItem = builder(name('checkbox-item'), {
+		const checkboxItem = makeElement(name('checkbox-item'), {
 			stores: [checked, disabled],
 			returned: ([$checked, $disabled]) => {
 				return {
@@ -466,7 +498,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 							return !prev;
 						});
 
-						if (get(closeOnItemClick)) {
+						if (closeOnItemClick.get()) {
 							// We're waiting for a tick to let the checked store update
 							// before closing the menu. If we don't, and the user was to hit
 							// spacebar or enter twice really fast, the menu would close and
@@ -531,17 +563,18 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		const valueWritable = args.value ?? writable(args.defaultValue ?? null);
 		const value = overridable(valueWritable, args.onValueChange);
 
-		const radioGroup = builder(name('radio-group'), {
-			returned: () => ({
-				role: 'group',
-			}),
+		const radioGroup = makeElement(name('radio-group'), {
+			returned: () =>
+				({
+					role: 'group',
+				} as const),
 		});
 
 		const radioItemDefaults = {
 			disabled: false,
 		};
 
-		const radioItem = builder(name('radio-item'), {
+		const radioItem = makeElement(name('radio-item'), {
 			stores: [value],
 			returned: ([$value]) => {
 				return (itemProps: _RadioItemProps) => {
@@ -557,7 +590,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 						'data-value': itemValue,
 						'data-orientation': 'vertical',
 						tabindex: -1,
-					};
+					} as const;
 				};
 			},
 			action: (node: HTMLElement): MeltActionReturn<MenuEvents['radioItem']> => {
@@ -594,7 +627,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 
 						value.set(itemValue);
 
-						if (get(closeOnItemClick)) {
+						if (closeOnItemClick.get()) {
 							// We're waiting for a tick to let the checked store update
 							// before closing the menu. If we don't, and the user was to hit
 							// spacebar or enter twice really fast, the menu would close and
@@ -686,9 +719,9 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 
 		const { positioning, arrowSize, disabled } = options;
 
-		const subActiveTrigger = writable<HTMLElement | null>(null);
-		const subOpenTimer = writable<number | null>(null);
-		const pointerGraceTimer = writable(0);
+		const subActiveTrigger = withGet(writable<HTMLElement | null>(null));
+		const subOpenTimer = withGet(writable<number | null>(null));
+		const pointerGraceTimer = withGet(writable(0));
 
 		const subIds = toWritableStores({ ...generateIds(menuIdParts), ...withDefaults.ids });
 
@@ -697,7 +730,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 			 * Set active trigger on mount to handle controlled/forceVisible
 			 * state.
 			 */
-			const subTrigger = document.getElementById(get(subIds.trigger));
+			const subTrigger = document.getElementById(subIds.trigger.get());
 			if (subTrigger) {
 				subActiveTrigger.set(subTrigger);
 			}
@@ -709,18 +742,16 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 			activeTrigger: subActiveTrigger,
 		});
 
-		const subMenu = builder(name('submenu'), {
-			stores: [subIsVisible, subIds.menu, subIds.trigger],
-			returned: ([$subIsVisible, $subMenuId, $subTriggerId]) => {
+		const subMenu = makeElement(name('submenu'), {
+			stores: [subIsVisible, subOpen, subActiveTrigger, subIds.menu, subIds.trigger],
+			returned: ([$subIsVisible, $subOpen, $subActiveTrigger, $subMenuId, $subTriggerId]) => {
 				return {
 					role: 'menu',
 					hidden: $subIsVisible ? undefined : true,
-					style: styleToString({
-						display: $subIsVisible ? undefined : 'none',
-					}),
+					style: $subIsVisible ? undefined : styleToString({ display: 'none' }),
 					id: $subMenuId,
 					'aria-labelledby': $subTriggerId,
-					'data-state': $subIsVisible ? 'open' : 'closed',
+					'data-state': $subOpen && $subActiveTrigger ? 'open' : 'closed',
 					// unit tests fail on `.closest` if the id starts with a number
 					// so using a data attribute
 					'data-id': $subMenuId,
@@ -735,26 +766,24 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 					([$subIsVisible, $positioning]) => {
 						unsubPopper();
 						if (!$subIsVisible) return;
-						const activeTrigger = get(subActiveTrigger);
+						const activeTrigger = subActiveTrigger.get();
 						if (!activeTrigger) return;
 						tick().then(() => {
+							unsubPopper();
 							const parentMenuEl = getParentMenu(activeTrigger);
 
-							const popper = usePopper(node, {
+							unsubPopper = usePopper(node, {
 								anchorElement: activeTrigger,
 								open: subOpen,
 								options: {
 									floating: $positioning,
 									portal: isHTMLElement(parentMenuEl) ? parentMenuEl : undefined,
-									clickOutside: null,
+									modal: null,
 									focusTrap: null,
 									escapeKeydown: null,
+									preventTextSelectionOverflow: null,
 								},
-							});
-
-							if (popper && popper.destroy) {
-								unsubPopper = popper.destroy;
-							}
+							}).destroy;
 						});
 					}
 				);
@@ -777,7 +806,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 						if (FIRST_LAST_KEYS.includes(e.key)) {
 							// prevent events from bubbling
 							e.stopImmediatePropagation();
-							handleMenuNavigation(e, get(loop) ?? false);
+							handleMenuNavigation(e, loop.get() ?? false);
 							return;
 						}
 
@@ -787,7 +816,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 
 						// close the submenu if the user presses a close key
 						if (isCloseKey) {
-							const $subActiveTrigger = get(subActiveTrigger);
+							const $subActiveTrigger = subActiveTrigger.get();
 							e.preventDefault();
 							subOpen.update(() => {
 								if ($subActiveTrigger) {
@@ -809,7 +838,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 							return;
 						}
 
-						if (!isModifierKey && isCharacterKey && get(typeahead) === true) {
+						if (!isModifierKey && isCharacterKey && typeahead.get() === true) {
 							// typeahead logic
 							handleTypeaheadSearch(e.key, getMenuItems(menuEl));
 						}
@@ -818,10 +847,10 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 						onMenuPointerMove(e);
 					}),
 					addMeltEventListener(node, 'focusout', (e) => {
-						const $subActiveTrigger = get(subActiveTrigger);
-						if (get(isUsingKeyboard)) {
+						const $subActiveTrigger = subActiveTrigger.get();
+						if (isUsingKeyboard.get()) {
 							const target = e.target;
-							const submenuEl = document.getElementById(get(subIds.menu));
+							const submenuEl = document.getElementById(subIds.menu.get());
 							if (!isHTMLElement(submenuEl) || !isHTMLElement(target)) return;
 
 							if (!submenuEl.contains(target) && target !== $subActiveTrigger) {
@@ -849,7 +878,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 			},
 		});
 
-		const subTrigger = builder(name('subtrigger'), {
+		const subTrigger = makeElement(name('subtrigger'), {
 			stores: [subOpen, disabled, subIds.menu, subIds.trigger],
 			returned: ([$subOpen, $disabled, $subMenuId, $subTriggerId]) => {
 				return {
@@ -873,7 +902,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 
 				const unsubTimer = () => {
 					clearTimerStore(subOpenTimer);
-					window.clearTimeout(get(pointerGraceTimer));
+					window.clearTimeout(pointerGraceTimer.get());
 					pointerGraceIntent.set(null);
 				};
 
@@ -886,7 +915,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 
 						// Manually focus because iOS Safari doesn't always focus on click (e.g. buttons)
 						handleRovingFocus(triggerEl);
-						if (!get(subOpen)) {
+						if (!subOpen.get()) {
 							subOpen.update((prev) => {
 								const isAlreadyOpen = prev;
 								if (!isAlreadyOpen) {
@@ -898,14 +927,14 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 						}
 					}),
 					addMeltEventListener(node, 'keydown', (e) => {
-						const $typed = get(typed);
+						const $typed = typed.get();
 						const triggerEl = e.currentTarget;
 						if (!isHTMLElement(triggerEl) || isElementDisabled(triggerEl)) return;
 						const isTypingAhead = $typed.length > 0;
 						if (isTypingAhead && e.key === kbd.SPACE) return;
 
 						if (SUB_OPEN_KEYS['ltr'].includes(e.key)) {
-							if (!get(subOpen)) {
+							if (!subOpen.get()) {
 								triggerEl.click();
 								e.preventDefault();
 								return;
@@ -929,12 +958,12 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 
 						const triggerEl = e.currentTarget;
 						if (!isHTMLElement(triggerEl)) return;
-						if (!isFocusWithinSubmenu(get(subIds.menu))) {
+						if (!isFocusWithinSubmenu(subIds.menu.get())) {
 							handleRovingFocus(triggerEl);
 						}
 
-						const openTimer = get(subOpenTimer);
-						if (!get(subOpen) && !openTimer && !isElementDisabled(triggerEl)) {
+						const openTimer = subOpenTimer.get();
+						if (!subOpen.get() && !openTimer && !isElementDisabled(triggerEl)) {
 							subOpenTimer.set(
 								window.setTimeout(() => {
 									subOpen.update(() => {
@@ -950,7 +979,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 						if (!isMouse(e)) return;
 						clearTimerStore(subOpenTimer);
 
-						const submenuEl = document.getElementById(get(subIds.menu));
+						const submenuEl = document.getElementById(subIds.menu.get());
 						const contentRect = submenuEl?.getBoundingClientRect();
 
 						if (contentRect) {
@@ -973,7 +1002,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 								side,
 							});
 
-							window.clearTimeout(get(pointerGraceTimer));
+							window.clearTimeout(pointerGraceTimer.get());
 							pointerGraceTimer.set(
 								window.setTimeout(() => {
 									pointerGraceIntent.set(null);
@@ -1019,16 +1048,17 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 			},
 		});
 
-		const subArrow = builder(name('subarrow'), {
+		const subArrow = makeElement(name('subarrow'), {
 			stores: arrowSize,
-			returned: ($arrowSize) => ({
-				'data-arrow': true,
-				style: styleToString({
-					position: 'absolute',
-					width: `var(--arrow-size, ${$arrowSize}px)`,
-					height: `var(--arrow-size, ${$arrowSize}px)`,
-				}),
-			}),
+			returned: ($arrowSize) =>
+				({
+					'data-arrow': true,
+					style: styleToString({
+						position: 'absolute',
+						width: `var(--arrow-size, ${$arrowSize}px)`,
+						height: `var(--arrow-size, ${$arrowSize}px)`,
+					}),
+				} as const),
 		});
 
 		/* -------------------------------------------------------------------------------------------------
@@ -1044,35 +1074,37 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 
 		effect([pointerGraceIntent], ([$pointerGraceIntent]) => {
 			if (!isBrowser || $pointerGraceIntent) return;
-			window.clearTimeout(get(pointerGraceTimer));
+			window.clearTimeout(pointerGraceTimer.get());
 		});
 
 		effect([subOpen], ([$subOpen]) => {
 			if (!isBrowser) return;
 
-			sleep(1).then(() => {
-				const menuEl = document.getElementById(get(subIds.menu));
-				if (!menuEl) return;
-
-				if ($subOpen && get(isUsingKeyboard)) {
-					// Selector to get menu items belonging to menu
+			if ($subOpen && isUsingKeyboard.get()) {
+				sleep(1).then(() => {
+					const menuEl = document.getElementById(subIds.menu.get());
+					if (!menuEl) return;
 					const menuItems = getMenuItems(menuEl);
 					if (!menuItems.length) return;
 					handleRovingFocus(menuItems[0]);
-				}
+				});
+			}
 
-				if (!$subOpen) {
-					const focusedItem = get(currentFocusedItem);
-					if (focusedItem && menuEl.contains(focusedItem)) {
-						removeHighlight(focusedItem);
-					}
+			if (!$subOpen) {
+				const focusedItem = currentFocusedItem.get();
+				const subTriggerEl = document.getElementById(subIds.trigger.get());
+				if (focusedItem) {
+					sleep(1).then(() => {
+						const menuEl = document.getElementById(subIds.menu.get());
+						if (!menuEl) return;
+						if (menuEl.contains(focusedItem)) {
+							removeHighlight(focusedItem);
+						}
+					});
 				}
-				if (menuEl && !$subOpen) {
-					const subTriggerEl = document.getElementById(get(subIds.trigger));
-					if (!subTriggerEl || document.activeElement === subTriggerEl) return;
-					removeHighlight(subTriggerEl);
-				}
-			});
+				if (!subTriggerEl || document.activeElement === subTriggerEl) return;
+				removeHighlight(subTriggerEl);
+			}
 		});
 
 		return {
@@ -1095,8 +1127,8 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		 * case where the user sets the `open` store to `true` without
 		 * clicking on the trigger.
 		 */
-		const triggerEl = document.getElementById(get(rootIds.trigger));
-		if (isHTMLElement(triggerEl) && get(rootOpen)) {
+		const triggerEl = document.getElementById(rootIds.trigger.get());
+		if (isHTMLElement(triggerEl) && rootOpen.get()) {
 			rootActiveTrigger.set(triggerEl);
 		}
 
@@ -1114,14 +1146,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 			);
 		};
 
-		const keydownListener = (e: KeyboardEvent) => {
-			if (e.key === kbd.ESCAPE && get(closeOnEscape)) {
-				rootOpen.set(false);
-				return;
-			}
-		};
 		unsubs.push(addEventListener(document, 'keydown', handleKeyDown, { capture: true }));
-		unsubs.push(addEventListener(document, 'keydown', keydownListener));
 
 		return () => {
 			unsubs.forEach((unsub) => unsub());
@@ -1138,18 +1163,14 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		}
 	});
 
-	effect([rootOpen], ([$rootOpen]) => {
-		if (!isBrowser) return;
-		if (!$rootOpen) {
-			const $rootActiveTrigger = get(rootActiveTrigger);
-			if (!$rootActiveTrigger) return;
-			const $closeFocus = get(closeFocus);
-
-			if (!$rootOpen && $rootActiveTrigger) {
-				handleFocus({ prop: $closeFocus, defaultEl: $rootActiveTrigger });
-			}
-		}
-	});
+	effect(
+		[rootOpen],
+		([$rootOpen]) => {
+			if (!isBrowser || $rootOpen) return;
+			handleFocus({ prop: closeFocus.get(), defaultEl: rootActiveTrigger.get() });
+		},
+		{ skipFirstRun: true }
+	);
 
 	effect([rootOpen, preventScroll], ([$rootOpen, $preventScroll]) => {
 		if (!isBrowser) return;
@@ -1163,9 +1184,9 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		// if the menu is open, we'll sleep for a sec so the menu can render
 		// before we focus on either the first item or the menu itself.
 		sleep(1).then(() => {
-			const menuEl = document.getElementById(get(rootIds.menu));
-			if (menuEl && $rootOpen && get(isUsingKeyboard)) {
-				if (get(disableFocusFirstItem)) {
+			const menuEl = document.getElementById(rootIds.menu.get());
+			if (menuEl && $rootOpen && isUsingKeyboard.get()) {
+				if (disableFocusFirstItem.get()) {
 					handleRovingFocus(menuEl);
 					return;
 				}
@@ -1181,25 +1202,6 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		return () => {
 			unsubs.forEach((unsub) => unsub());
 		};
-	});
-
-	effect(rootOpen, ($rootOpen) => {
-		if (!isBrowser) return;
-
-		const handlePointer = () => isUsingKeyboard.set(false);
-		const handleKeyDown = (e: KeyboardEvent) => {
-			isUsingKeyboard.set(true);
-			if (e.key === kbd.ESCAPE && $rootOpen && get(closeOnEscape)) {
-				rootOpen.set(false);
-				return;
-			}
-		};
-
-		return executeCallbacks(
-			addEventListener(document, 'pointerdown', handlePointer, { capture: true, once: true }),
-			addEventListener(document, 'pointermove', handlePointer, { capture: true, once: true }),
-			addEventListener(document, 'keydown', handleKeyDown, { capture: true })
-		);
 	});
 
 	function handleOpen(triggerEl: HTMLElement) {
@@ -1222,7 +1224,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 	function onItemFocusIn(e: FocusEvent) {
 		const itemEl = e.currentTarget;
 		if (!isHTMLElement(itemEl)) return;
-		const $currentFocusedItem = get(currentFocusedItem);
+		const $currentFocusedItem = currentFocusedItem.get();
 		if ($currentFocusedItem) {
 			removeHighlight($currentFocusedItem);
 		}
@@ -1278,7 +1280,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 		const currentTarget = e.currentTarget;
 		if (!isHTMLElement(currentTarget) || !isHTMLElement(target)) return;
 
-		const $lastPointerX = get(lastPointerX);
+		const $lastPointerX = lastPointerX.get();
 		const pointerXHasChanged = $lastPointerX !== e.clientX;
 
 		// We don't use `e.movementX` for this check because Safari will
@@ -1318,7 +1320,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 	 * -----------------------------------------------------------------------------------------------*/
 
 	function onItemKeyDown(e: KeyboardEvent) {
-		const $typed = get(typed);
+		const $typed = typed.get();
 		const isTypingAhead = $typed.length > 0;
 		if (isTypingAhead && e.key === kbd.SPACE) {
 			e.preventDefault();
@@ -1348,7 +1350,7 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 	}
 
 	function isPointerMovingToSubmenu(e: PointerEvent) {
-		return get(pointerMovingToSubmenu)(e);
+		return pointerMovingToSubmenu.get()(e);
 	}
 
 	/**
@@ -1362,37 +1364,46 @@ export function createMenuBuilder(opts: _MenuBuilderOptions) {
 	}
 
 	return {
+		elements: {
+			trigger: rootTrigger,
+			menu: rootMenu,
+			overlay,
+			item,
+			group,
+			groupLabel,
+			arrow: rootArrow,
+			separator,
+		},
+		builders: {
+			createCheckboxItem,
+			createSubmenu,
+			createMenuRadioGroup,
+		},
+		states: {
+			open: rootOpen,
+		},
+		helpers: {
+			handleTypeaheadSearch,
+		},
 		ids: rootIds,
-		trigger: rootTrigger,
-		menu: rootMenu,
-		open: rootOpen,
-		item,
-		group,
-		groupLabel,
-		arrow: rootArrow,
 		options: opts.rootOptions,
-		createCheckboxItem,
-		createSubmenu,
-		createMenuRadioGroup,
-		separator,
-		handleTypeaheadSearch,
 	};
 }
 
 export function handleTabNavigation(
 	e: KeyboardEvent,
-	nextFocusable: Writable<HTMLElement | null>,
-	prevFocusable: Writable<HTMLElement | null>
+	nextFocusable: WithGet<Writable<HTMLElement | null>>,
+	prevFocusable: WithGet<Writable<HTMLElement | null>>
 ) {
 	if (e.shiftKey) {
-		const $prevFocusable = get(prevFocusable);
+		const $prevFocusable = prevFocusable.get();
 		if ($prevFocusable) {
 			e.preventDefault();
 			sleep(1).then(() => $prevFocusable.focus());
 			prevFocusable.set(null);
 		}
 	} else {
-		const $nextFocusable = get(nextFocusable);
+		const $nextFocusable = nextFocusable.get();
 		if ($nextFocusable) {
 			e.preventDefault();
 			sleep(1).then(() => $nextFocusable.focus());
@@ -1424,9 +1435,9 @@ export function applyAttrsIfDisabled(element: HTMLElement | null) {
  * Given a timer store, clear the timeout and set the store to null
  * @param openTimer The timer store
  */
-export function clearTimerStore(timerStore: Writable<number | null>) {
+export function clearTimerStore(timerStore: WithGet<Writable<number | null>>) {
 	if (!isBrowser) return;
-	const timer = get(timerStore);
+	const timer = timerStore.get();
 	if (timer) {
 		window.clearTimeout(timer);
 		timerStore.set(null);
@@ -1512,38 +1523,8 @@ export function handleMenuNavigation(e: KeyboardEvent, loop?: boolean) {
 	handleRovingFocus(candidateNodes[nextIndex]);
 }
 
-export type Point = { x: number; y: number };
-type Polygon = Point[];
 type Side = 'left' | 'right';
 type GraceIntent = { area: Polygon; side: Side };
-
-function isPointerInGraceArea(e: PointerEvent, area?: Polygon) {
-	if (!area) return false;
-	const cursorPos = { x: e.clientX, y: e.clientY };
-	return isPointInPolygon(cursorPos, area);
-}
-
-/**
- * Determine if a point is inside of a polygon.
- *
- * @see https://github.com/substack/point-in-polygon
- */
-function isPointInPolygon(point: Point, polygon: Polygon) {
-	const { x, y } = point;
-	let inside = false;
-	for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-		const xi = polygon[i].x;
-		const yi = polygon[i].y;
-		const xj = polygon[j].x;
-		const yj = polygon[j].y;
-
-		// prettier-ignore
-		const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-		if (intersect) inside = !inside;
-	}
-
-	return inside;
-}
 
 function isFocusWithinSubmenu(submenuId: string) {
 	const activeEl = document.activeElement;
@@ -1552,4 +1533,8 @@ function isFocusWithinSubmenu(submenuId: string) {
 	// so we're using a data attribute.
 	const submenuEl = activeEl.closest(`[data-id="${submenuId}"]`);
 	return isHTMLElement(submenuEl);
+}
+
+function stateAttr(open: boolean) {
+	return open ? 'open' : 'closed';
 }

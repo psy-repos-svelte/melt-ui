@@ -1,29 +1,32 @@
-import { usePopper } from '$lib/internal/actions/index.js';
+import { usePopper, type InteractOutsideEvent } from '$lib/internal/actions/index.js';
 import {
 	FIRST_LAST_KEYS,
 	addMeltEventListener,
-	builder,
+	makeElement,
 	createElHelpers,
 	derivedVisible,
-	derivedWithUnsubscribe,
 	effect,
 	executeCallbacks,
 	getNextFocusable,
 	getPortalDestination,
 	getPreviousFocusable,
 	isHTMLElement,
-	isLeftClick,
 	kbd,
 	noop,
 	omit,
 	overridable,
 	styleToString,
 	toWritableStores,
+	withGet,
+	type WithGet,
+	portalAttr,
+	type Point,
+	isElement,
 } from '$lib/internal/helpers/index.js';
 import type { MeltActionReturn } from '$lib/internal/types.js';
 import type { VirtualElement } from '@floating-ui/core';
 import { tick } from 'svelte';
-import { get, writable, type Readable } from 'svelte/store';
+import { derived, writable, type Readable } from 'svelte/store';
 import {
 	applyAttrsIfDisabled,
 	clearTimerStore,
@@ -33,7 +36,6 @@ import {
 	handleTabNavigation,
 	setMeltMenuAttribute,
 	type _MenuParts,
-	type Point,
 } from '../menu/index.js';
 import type { ContextMenuEvents } from './events.js';
 import type { CreateContextMenuProps } from './types.js';
@@ -44,9 +46,9 @@ const defaults = {
 		placement: 'bottom-start',
 	},
 	preventScroll: true,
-	closeOnEscape: true,
+	escapeBehavior: 'close',
 	closeOnOutsideClick: true,
-	portal: undefined,
+	portal: 'body',
 	loop: false,
 	dir: 'ltr',
 	defaultOpen: false,
@@ -56,6 +58,7 @@ const defaults = {
 	closeFocus: undefined,
 	closeOnItemClick: true,
 	onOutsideClick: undefined,
+	preventTextSelectionOverflow: true,
 } satisfies CreateContextMenuProps;
 
 const { name, selector } = createElHelpers<_MenuParts>('context-menu');
@@ -64,65 +67,61 @@ export function createContextMenu(props?: CreateContextMenuProps) {
 	const withDefaults = { ...defaults, ...props } satisfies CreateContextMenuProps;
 
 	const rootOptions = toWritableStores(omit(withDefaults, 'ids'));
-	const { positioning, closeOnOutsideClick, portal, forceVisible, closeOnEscape, loop } =
-		rootOptions;
+	const {
+		positioning,
+		closeOnOutsideClick,
+		portal,
+		forceVisible,
+		escapeBehavior,
+		loop,
+		preventTextSelectionOverflow,
+	} = rootOptions;
 
 	const openWritable = withDefaults.open ?? writable(withDefaults.defaultOpen);
 	const rootOpen = overridable(openWritable, withDefaults?.onOpenChange);
 	const rootActiveTrigger = writable<HTMLElement | null>(null);
-	const nextFocusable = writable<HTMLElement | null>(null);
-	const prevFocusable = writable<HTMLElement | null>(null);
+	const nextFocusable = withGet.writable<HTMLElement | null>(null);
+	const prevFocusable = withGet.writable<HTMLElement | null>(null);
 
-	const {
-		item,
-		createCheckboxItem,
-		arrow,
-		createSubmenu,
-		createMenuRadioGroup,
-		ids,
-		separator,
-		handleTypeaheadSearch,
-		group,
-		groupLabel,
-	} = createMenuBuilder({
+	const { elements, builders, ids, options, helpers, states } = createMenuBuilder({
 		rootOpen,
-		rootActiveTrigger,
 		rootOptions,
-		nextFocusable,
-		prevFocusable,
+		rootActiveTrigger: withGet(rootActiveTrigger),
+		nextFocusable: withGet(nextFocusable),
+		prevFocusable: withGet(prevFocusable),
 		selector: 'context-menu',
 		removeScroll: true,
 		ids: withDefaults.ids,
 	});
 
+	const { handleTypeaheadSearch } = helpers;
+
 	const point = writable<Point | null>(null);
-	const virtual: Readable<VirtualElement | null> = derivedWithUnsubscribe([point], ([$point]) => {
-		if ($point === null) return null;
+	const virtual: WithGet<Readable<VirtualElement | null>> = withGet(
+		derived([point], ([$point]) => {
+			if ($point === null) return null;
 
-		return {
-			getBoundingClientRect: () =>
-				DOMRect.fromRect({
-					width: 0,
-					height: 0,
-					...$point,
-				}),
-		};
-	});
-	const longPressTimer = writable(0);
+			return {
+				getBoundingClientRect: () =>
+					DOMRect.fromRect({
+						width: 0,
+						height: 0,
+						...$point,
+					}),
+			};
+		})
+	);
+	const longPressTimer = withGet.writable(0);
 
-	function handleClickOutside(e: PointerEvent) {
-		get(rootOptions.onOutsideClick)?.(e);
-		if (e.defaultPrevented) return;
+	function handleClickOutside(e: InteractOutsideEvent) {
+		rootOptions.onOutsideClick.get()?.(e);
+		if (e.defaultPrevented) return false;
 
 		const target = e.target;
-		if (!(target instanceof Element)) return;
+		if (!isElement(target)) return false;
 
-		const isClickInsideTrigger = target.closest(`[data-id="${get(ids.trigger)}"]`) !== null;
-
-		if (!isClickInsideTrigger || isLeftClick(e)) {
-			rootOpen.set(false);
-			return;
-		}
+		const isClickInsideTrigger = target.closest(`[data-id="${ids.trigger.get()}"]`) !== null;
+		return !isClickInsideTrigger || isLeftClick(e);
 	}
 
 	const isVisible = derivedVisible({
@@ -131,20 +130,18 @@ export function createContextMenu(props?: CreateContextMenuProps) {
 		activeTrigger: rootActiveTrigger,
 	});
 
-	const menu = builder(name(), {
-		stores: [isVisible, portal, ids.menu, ids.trigger],
-		returned: ([$isVisible, $portal, $menuId, $triggerId]) => {
+	const menu = makeElement(name(), {
+		stores: [isVisible, rootOpen, rootActiveTrigger, portal, ids.menu, ids.trigger],
+		returned: ([$isVisible, $rootOpen, $rootActiveTrigger, $portal, $menuId, $triggerId]) => {
 			// We only want to render the menu when it's open and has an active trigger.
 			return {
 				role: 'menu',
 				hidden: $isVisible ? undefined : true,
-				style: styleToString({
-					display: $isVisible ? undefined : 'none',
-				}),
+				style: $isVisible ? undefined : styleToString({ display: 'none' }),
 				id: $menuId,
 				'aria-labelledby': $triggerId,
-				'data-state': $isVisible ? 'open' : 'closed',
-				'data-portal': $portal ? '' : undefined,
+				'data-state': $rootOpen && $rootActiveTrigger ? 'open' : 'closed',
+				'data-portal': portalAttr($portal),
 				tabindex: -1,
 			} as const;
 		},
@@ -152,36 +149,31 @@ export function createContextMenu(props?: CreateContextMenuProps) {
 			let unsubPopper = noop;
 
 			const unsubDerived = effect(
-				[isVisible, rootActiveTrigger, positioning, closeOnOutsideClick, portal, closeOnEscape],
-				([
-					$isVisible,
-					$rootActiveTrigger,
-					$positioning,
-					$closeOnOutsideClick,
-					$portal,
-					$closeOnEscape,
-				]) => {
+				[isVisible, rootActiveTrigger, positioning, closeOnOutsideClick, portal],
+				([$isVisible, $rootActiveTrigger, $positioning, $closeOnOutsideClick, $portal]) => {
 					unsubPopper();
 					if (!$isVisible || !$rootActiveTrigger) return;
 					tick().then(() => {
+						unsubPopper();
 						setMeltMenuAttribute(node, selector);
-						const $virtual = get(virtual);
-						const popper = usePopper(node, {
-							anchorElement: $virtual ? $virtual : $rootActiveTrigger,
+						const $virtual = virtual.get();
+						unsubPopper = usePopper(node, {
+							anchorElement: $virtual ?? $rootActiveTrigger,
 							open: rootOpen,
 							options: {
 								floating: $positioning,
-								clickOutside: $closeOnOutsideClick
-									? {
-											handler: handleClickOutside,
-									  }
-									: null,
+								modal: {
+									closeOnInteractOutside: $closeOnOutsideClick,
+									onClose: () => {
+										rootOpen.set(false);
+									},
+									shouldCloseOnInteractOutside: handleClickOutside,
+								},
 								portal: getPortalDestination(node, $portal),
-								escapeKeydown: $closeOnEscape ? undefined : null,
+								escapeKeydown: { behaviorType: escapeBehavior },
+								preventTextSelectionOverflow: { enabled: preventTextSelectionOverflow },
 							},
-						});
-						if (!popper || !popper.destroy) return;
-						unsubPopper = popper.destroy;
+						}).destroy;
 					});
 				}
 			);
@@ -199,7 +191,7 @@ export function createContextMenu(props?: CreateContextMenuProps) {
 					const isKeyDownInside = target.closest("[role='menu']") === menuEl;
 					if (!isKeyDownInside) return;
 					if (FIRST_LAST_KEYS.includes(e.key)) {
-						handleMenuNavigation(e, get(loop));
+						handleMenuNavigation(e, loop.get());
 					}
 
 					/**
@@ -233,7 +225,7 @@ export function createContextMenu(props?: CreateContextMenuProps) {
 		},
 	});
 
-	const trigger = builder(name('trigger'), {
+	const trigger = makeElement(name('trigger'), {
 		stores: [rootOpen, ids.trigger],
 		returned: ([$rootOpen, $triggerId]) => {
 			return {
@@ -247,6 +239,7 @@ export function createContextMenu(props?: CreateContextMenuProps) {
 		},
 		action: (node: HTMLElement): MeltActionReturn<ContextMenuEvents['trigger']> => {
 			applyAttrsIfDisabled(node);
+			rootActiveTrigger.set(node);
 
 			const handleOpen = (e: MouseEvent | PointerEvent) => {
 				point.set({
@@ -255,7 +248,6 @@ export function createContextMenu(props?: CreateContextMenuProps) {
 				});
 				nextFocusable.set(getNextFocusable(node));
 				prevFocusable.set(getPreviousFocusable(node));
-				rootActiveTrigger.set(node);
 				rootOpen.set(true);
 			};
 
@@ -264,6 +256,10 @@ export function createContextMenu(props?: CreateContextMenuProps) {
 			};
 
 			const unsub = executeCallbacks(
+				addMeltEventListener(window, 'contextmenu', (e) => {
+					if (node.contains(e.target as Node)) return;
+					rootOpen.set(false);
+				}),
 				addMeltEventListener(node, 'contextmenu', (e) => {
 					/**
 					 * Clear the long press because some platforms already
@@ -300,6 +296,7 @@ export function createContextMenu(props?: CreateContextMenuProps) {
 
 			return {
 				destroy() {
+					rootActiveTrigger.set(null);
 					unsubTimer();
 					unsub();
 				},
@@ -310,23 +307,13 @@ export function createContextMenu(props?: CreateContextMenuProps) {
 	return {
 		ids,
 		elements: {
+			...elements,
 			menu,
 			trigger,
-			item,
-			arrow,
-			separator,
-			group,
-			groupLabel,
 		},
-		states: {
-			open: rootOpen,
-		},
-		builders: {
-			createSubmenu,
-			createCheckboxItem,
-			createMenuRadioGroup,
-		},
-		options: rootOptions,
+		states,
+		builders,
+		options,
 	};
 }
 
@@ -336,4 +323,11 @@ export function createContextMenu(props?: CreateContextMenuProps) {
  */
 function isTouchOrPen(e: PointerEvent) {
 	return e.pointerType !== 'mouse';
+}
+
+export function isLeftClick(event: InteractOutsideEvent): boolean {
+	if ('button' in event) {
+		return event.button === 0 && event.ctrlKey === false && event.metaKey === false;
+	}
+	return true;
 }

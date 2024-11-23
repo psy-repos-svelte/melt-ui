@@ -2,7 +2,7 @@
 	import { createDialog, melt } from '$lib/index.js';
 	/** Internal helpers */
 	import { flyAndScale } from '$docs/utils/index.js';
-	import { X } from 'lucide-svelte';
+	import { X } from '$icons/index.js';
 
 	const {
 		elements: {
@@ -19,8 +19,8 @@
 </script>
 
 <button use:melt={$trigger} class="trigger"> Open Dialog </button>
-<div use:melt={$portalled}>
-	{#if $open}
+{#if $open}
+	<div use:melt={$portalled}>
 		<div use:melt={$overlay} class="overlay" />
 		<div
 			class="content"
@@ -50,11 +50,11 @@
 			</div>
 
 			<button use:melt={$close} aria-label="close" class="close">
-				<X class="square-4" />
+				<X class="size-4" />
 			</button>
 		</div>
-	{/if}
-</div>
+	</div>
+{/if}
 
 <style lang="postcss">
 	.trigger {

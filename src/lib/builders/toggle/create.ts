@@ -1,6 +1,6 @@
 import {
 	addMeltEventListener,
-	builder,
+	makeElement,
 	disabledAttr,
 	executeCallbacks,
 	kbd,
@@ -9,7 +9,7 @@ import {
 	toWritableStores,
 } from '$lib/internal/helpers/index.js';
 import type { MeltActionReturn } from '$lib/internal/types.js';
-import { get, writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 import type { ToggleEvents } from './events.js';
 import type { CreateToggleProps } from './types.js';
 
@@ -28,12 +28,12 @@ export function createToggle(props?: CreateToggleProps) {
 	const pressed = overridable(pressedWritable, withDefaults?.onPressedChange);
 
 	function handleToggle() {
-		const $disabled = get(disabled);
+		const $disabled = disabled.get();
 		if ($disabled) return;
 		pressed.update((v) => !v);
 	}
 
-	const root = builder('toggle', {
+	const root = makeElement('toggle', {
 		stores: [pressed, disabled],
 		returned: ([$pressed, $disabled]) => {
 			return {

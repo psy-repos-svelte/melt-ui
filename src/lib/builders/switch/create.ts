@@ -1,6 +1,6 @@
 import {
 	addMeltEventListener,
-	builder,
+	makeElement,
 	createElHelpers,
 	disabledAttr,
 	kbd,
@@ -10,7 +10,7 @@ import {
 	toWritableStores,
 } from '$lib/internal/helpers/index.js';
 import type { Defaults, MeltActionReturn } from '$lib/internal/types.js';
-import { get, writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 import { executeCallbacks } from '../../internal/helpers/callbacks.js';
 import type { SwitchEvents } from './events.js';
 import type { CreateSwitchProps } from './types.js';
@@ -35,11 +35,11 @@ export function createSwitch(props?: CreateSwitchProps) {
 	const checked = overridable(checkedWritable, propsWithDefaults?.onCheckedChange);
 
 	function toggleSwitch() {
-		if (get(disabled)) return;
+		if (disabled.get()) return;
 		checked.update((prev) => !prev);
 	}
 
-	const root = builder(name(), {
+	const root = makeElement(name(), {
 		stores: [checked, disabled, required],
 		returned: ([$checked, $disabled, $required]) => {
 			return {
@@ -70,11 +70,11 @@ export function createSwitch(props?: CreateSwitchProps) {
 		},
 	});
 
-	const input = builder(name('input'), {
+	const input = makeElement(name('input'), {
 		stores: [checked, nameStore, required, disabled, value],
 		returned: ([$checked, $name, $required, $disabled, $value]) => {
 			return {
-				type: 'checkbox' as const,
+				type: 'checkbox',
 				'aria-hidden': true,
 				hidden: true,
 				tabindex: -1,

@@ -1,8 +1,9 @@
 import { overridable, toWritableStores } from '$lib/internal/helpers/index.js';
+import { withGet } from '$lib/internal/helpers/withGet.js';
 import { writable } from 'svelte/store';
+import { omit } from '../../internal/helpers/object.js';
 import { createMenuBuilder } from '../menu/index.js';
 import type { CreateDropdownMenuProps } from './types.js';
-import { omit } from '../../internal/helpers/object';
 
 const defaults = {
 	arrowSize: 8,
@@ -10,9 +11,9 @@ const defaults = {
 		placement: 'bottom',
 	},
 	preventScroll: true,
-	closeOnEscape: true,
+	escapeBehavior: 'close',
 	closeOnOutsideClick: true,
-	portal: undefined,
+	portal: 'body',
 	loop: false,
 	dir: 'ltr',
 	defaultOpen: false,
@@ -22,6 +23,7 @@ const defaults = {
 	disableFocusFirstItem: false,
 	closeOnItemClick: true,
 	onOutsideClick: undefined,
+	preventTextSelectionOverflow: true,
 } satisfies CreateDropdownMenuProps;
 
 export function createDropdownMenu(props?: CreateDropdownMenuProps) {
@@ -32,28 +34,16 @@ export function createDropdownMenu(props?: CreateDropdownMenuProps) {
 	const openWritable = withDefaults.open ?? writable(withDefaults.defaultOpen);
 	const rootOpen = overridable(openWritable, withDefaults?.onOpenChange);
 
-	const rootActiveTrigger = writable<HTMLElement | null>(null);
-	const nextFocusable = writable<HTMLElement | null>(null);
-	const prevFocusable = writable<HTMLElement | null>(null);
+	const rootActiveTrigger = withGet(writable<HTMLElement | null>(null));
+	const nextFocusable = withGet(writable<HTMLElement | null>(null));
+	const prevFocusable = withGet(writable<HTMLElement | null>(null));
 
-	const {
-		trigger,
-		menu,
-		item,
-		arrow,
-		createSubmenu,
-		createCheckboxItem,
-		createMenuRadioGroup,
-		separator,
-		group,
-		groupLabel,
-		ids,
-	} = createMenuBuilder({
+	const { elements, builders, ids, states, options } = createMenuBuilder({
 		rootOptions,
 		rootOpen,
-		rootActiveTrigger,
-		nextFocusable,
-		prevFocusable,
+		rootActiveTrigger: withGet(rootActiveTrigger),
+		nextFocusable: withGet(nextFocusable),
+		prevFocusable: withGet(prevFocusable),
 		selector: 'dropdown-menu',
 		removeScroll: true,
 		ids: withDefaults.ids,
@@ -61,23 +51,9 @@ export function createDropdownMenu(props?: CreateDropdownMenuProps) {
 
 	return {
 		ids,
-		elements: {
-			trigger,
-			menu,
-			item,
-			arrow,
-			separator,
-			group,
-			groupLabel,
-		},
-		states: {
-			open: rootOpen,
-		},
-		builders: {
-			createCheckboxItem,
-			createSubmenu,
-			createMenuRadioGroup,
-		},
-		options: rootOptions,
+		elements,
+		states,
+		builders,
+		options,
 	};
 }

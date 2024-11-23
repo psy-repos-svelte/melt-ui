@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { createSelect, melt, type CreateSelectProps } from '$lib/index.js';
-	import { Check } from 'lucide-svelte';
+	import { Check } from '$icons/index.js';
 	import { tick } from 'svelte';
-	import { removeUndefined } from '../utils';
+	import { removeUndefined } from '../utils.js';
 
 	export let multiple = false;
 	export let defaultValue: string | undefined = undefined;
-	export let closeOnEscape = true;
+	export let escapeBehavior: CreateSelectProps['escapeBehavior'] = 'close';
 	export let closeOnOutsideClick = true;
 	export let ids: CreateSelectProps['ids'] = undefined;
 	export let onOutsideClick: CreateSelectProps['onOutsideClick'] = undefined;
@@ -24,7 +24,7 @@
 						label: defaultValue,
 				  }
 				: undefined,
-			closeOnEscape,
+			escapeBehavior,
 			closeOnOutsideClick,
 			ids,
 			onOutsideClick,

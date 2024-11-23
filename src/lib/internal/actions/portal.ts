@@ -4,7 +4,7 @@ import { isHTMLElement, noop } from '$lib/internal/helpers/index.js';
 
 export type PortalConfig = string | HTMLElement | undefined;
 
-export const usePortal: Action<HTMLElement, PortalConfig> = (el, target = 'body') => {
+export const usePortal = ((el, target = 'body') => {
 	let targetEl;
 
 	if (!isHTMLElement(target) && typeof target !== 'string') {
@@ -13,8 +13,9 @@ export const usePortal: Action<HTMLElement, PortalConfig> = (el, target = 'body'
 		};
 	}
 
-	async function update(newTarget: HTMLElement | string | undefined) {
+	async function update(newTarget: PortalConfig = 'body') {
 		target = newTarget;
+
 		if (typeof target === 'string') {
 			targetEl = document.querySelector(target);
 			if (targetEl === null) {
@@ -47,4 +48,4 @@ export const usePortal: Action<HTMLElement, PortalConfig> = (el, target = 'body'
 		update,
 		destroy,
 	};
-};
+}) satisfies Action<HTMLElement, PortalConfig>;

@@ -2,6 +2,8 @@ import type { ChangeFn, FocusProp, IdObj } from '$lib/internal/helpers/index.js'
 import type { BuilderReturn } from '$lib/internal/types.js';
 import type { Writable } from 'svelte/store';
 import type { DialogIdParts, createDialog } from './create.js';
+import type { PortalConfig } from '$lib/internal/actions/portal.js';
+import type { EscapeBehaviorType } from '$lib/internal/actions/index.js';
 export type { DialogComponentEvents } from './events.js';
 export type CreateDialogProps = {
 	/**
@@ -13,11 +15,15 @@ export type CreateDialogProps = {
 	preventScroll?: boolean;
 
 	/**
-	 * If true, the dialog will close when the user presses the escape key.
+	 * Escape behavior type.
+	 * `close`: Closes the element immediately.
+	 * `defer-otherwise-close`: Delegates the action to the parent element. If no parent is found, it closes the element.
+	 * `defer-otherwise-ignore`: Delegates the action to the parent element. If no parent is found, nothing is done.
+	 * `ignore`: Prevents the element from closing and also blocks the parent element from closing in response to the Escape key.
 	 *
-	 * @default true
+	 * @defaultValue `close`
 	 */
-	closeOnEscape?: boolean;
+	escapeBehavior?: EscapeBehaviorType;
 
 	/**
 	 * If true, the dialog will close when the user clicks outside of it.
@@ -32,7 +38,7 @@ export type CreateDialogProps = {
 	 * If `event.preventDefault()` is called within the function,
 	 * the dialog will not close when the user clicks outside of it.
 	 */
-	onOutsideClick?: (event: PointerEvent) => void;
+	onOutsideClick?: (event: PointerEvent | MouseEvent | TouchEvent) => void;
 
 	/**
 	 * The `role` attribute to apply to the dialog.
@@ -65,7 +71,7 @@ export type CreateDialogProps = {
 	 *
 	 * @default 'body'
 	 */
-	portal?: HTMLElement | string | null;
+	portal?: PortalConfig | null;
 
 	/**
 	 * If true, the dialog will be visible regardless of the open state.

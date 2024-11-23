@@ -1,10 +1,10 @@
 import { render, waitFor } from '@testing-library/svelte';
 import { axe } from 'jest-axe';
 import { describe, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { testKbd as kbd } from '../utils.js';
 import ContextMenuTest from './ContextMenuTest.svelte';
-import type { CreateContextMenuProps } from '$lib';
+import type { CreateContextMenuProps } from '$lib/index.js';
 
 function setup(props: CreateContextMenuProps = {}) {
 	const user = userEvent.setup();
@@ -147,6 +147,7 @@ describe('Context Menu', () => {
 	test('Should close on outside click by default', async () => {
 		const { user, getByTestId, queryByTestId } = await open();
 		const outsideClick = getByTestId('outside-click');
+		expect(outsideClick).toBeVisible();
 		await user.click(outsideClick);
 		await waitFor(() => expect(queryByTestId('menu')).toBeNull());
 	});
@@ -157,9 +158,9 @@ describe('Context Menu', () => {
 		await waitFor(() => expect(queryByTestId('menu')).toBeNull());
 	});
 
-	test('respects `closeOnEscape` prop', async () => {
+	test('respects `escapeBehavior` prop', async () => {
 		const { user, getByTestId } = await open({
-			closeOnEscape: false,
+			escapeBehavior: 'ignore',
 		});
 		await user.keyboard(kbd.ESCAPE);
 		expect(getByTestId('menu')).toBeVisible();

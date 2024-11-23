@@ -7,7 +7,7 @@ import type {
 	Props,
 	ReturnedProps,
 } from '$docs/types.js';
-import { stringifiedIdObjType } from '$lib/internal/helpers';
+import { stringifiedIdObjType } from '$lib/internal/helpers/index.js';
 
 export function propToOption(prop: Prop): ReturnedProps[0] {
 	const type = Array.isArray(prop.type) ? prop.type.join(' | ') : prop.type;
@@ -136,3 +136,16 @@ export function elementSchema(name: string, schema: ElementSchema): APISchema {
 		events: customEvents,
 	};
 }
+
+export const floatingSideDataAttr = {
+	name: 'data-side',
+	value: "'top' | 'right' | 'bottom' | 'left'",
+};
+
+export const floatingSideAndAlignDataAttrs = [
+	floatingSideDataAttr,
+	{
+		name: 'data-align',
+		value: "'start' | 'center' | 'end'",
+	},
+];

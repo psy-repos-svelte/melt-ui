@@ -2,8 +2,8 @@ import { render } from '@testing-library/svelte';
 import { axe } from 'jest-axe';
 import { describe, it } from 'vitest';
 import SwitchTest from './SwitchTest.svelte';
-import userEvent from '@testing-library/user-event';
-import { kbd } from '$lib/internal/helpers';
+import { userEvent } from '@testing-library/user-event';
+import { testKbd as kbd } from '../utils.js';
 import { writable } from 'svelte/store';
 import { tick } from 'svelte';
 
@@ -35,11 +35,11 @@ describe('Switch', () => {
 		expect(switchEl).toHaveFocus();
 
 		for (const key of keys) {
-			await userEvent.keyboard(`{${key}}`);
+			await userEvent.keyboard(key);
 			expect(switchEl).toHaveAttribute('data-state', 'checked');
 			expect(switchEl).toHaveAttribute('aria-checked', 'true');
 
-			await userEvent.keyboard(`{${key}}`);
+			await userEvent.keyboard(key);
 			expect(switchEl).toHaveAttribute('data-state', 'unchecked');
 			expect(switchEl).toHaveAttribute('aria-checked', 'false');
 		}

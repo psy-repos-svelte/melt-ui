@@ -1,29 +1,30 @@
-import type { CreateDateRangeFieldProps } from './types.js';
-import {
-	builder,
-	createElHelpers,
-	overridable,
-	toWritableStores,
-	omit,
-	effect,
-	styleToString,
-	executeCallbacks,
-	addMeltEventListener,
-	sleep,
-} from '$lib/internal/helpers/index.js';
-import {
-	dateStore,
-	getDefaultDate,
-	getAnnouncer,
-	isBefore,
-	areAllDaysBetweenValid,
-	getFirstSegment,
-} from '$lib/internal/helpers/date/index.js';
-import { derived, get, writable } from 'svelte/store';
-import { removeDescriptionElement } from './_internal/helpers.js';
 import { createDateField } from '$lib/index.js';
+import {
+	areAllDaysBetweenValid,
+	dateStore,
+	getAnnouncer,
+	getDefaultDate,
+	getFirstSegment,
+	isBeforeOrSame,
+} from '$lib/internal/helpers/date/index.js';
+import {
+	addMeltEventListener,
+	makeElement,
+	createElHelpers,
+	effect,
+	executeCallbacks,
+	omit,
+	overridable,
+	sleep,
+	styleToString,
+	toWritableStores,
+} from '$lib/internal/helpers/index.js';
+import { withGet } from '$lib/internal/helpers/withGet.js';
 import type { DateValue } from '@internationalized/date';
-import { generateIds } from '../../internal/helpers/id';
+import { derived, writable } from 'svelte/store';
+import { generateIds } from '../../internal/helpers/id.js';
+import { removeDescriptionElement } from './_internal/helpers.js';
+import type { CreateDateRangeFieldProps } from './types.js';
 
 const defaults = {
 	isDateUnavailable: undefined,
@@ -68,12 +69,12 @@ export function createDateRangeField(props?: CreateDateRangeFieldProps) {
 	const valueWritable = withDefaults.value ?? writable(withDefaults.defaultValue);
 	const value = overridable(valueWritable, withDefaults.onValueChange);
 
-	const defaultStart = withDefaults.value ? get(withDefaults.value)?.start : undefined;
-	const startValue = writable<DateValue | undefined>(
-		defaultStart ?? withDefaults.defaultValue?.start
+	const startValue = withGet.writable<DateValue | undefined>(
+		value.get()?.start ?? withDefaults.defaultValue?.start
 	);
-	const defaultEnd = withDefaults.value ? get(withDefaults.value)?.end : undefined;
-	const endValue = writable<DateValue | undefined>(defaultEnd ?? withDefaults.defaultValue?.end);
+	const endValue = withGet.writable<DateValue | undefined>(
+		value.get()?.end ?? withDefaults.defaultValue?.end
+	);
 
 	const isCompleted = derived(value, ($value) => {
 		return $value?.start && $value?.end;
@@ -153,7 +154,7 @@ export function createDateRangeField(props?: CreateDateRangeFieldProps) {
 				return false;
 			}
 
-			if (!isBefore($value?.start, $value?.end)) {
+			if (!isBeforeOrSame($value?.start, $value?.end)) {
 				return true;
 			}
 
@@ -173,19 +174,19 @@ export function createDateRangeField(props?: CreateDateRangeFieldProps) {
 		}
 	);
 
-	const label = builder(name('label'), {
+	const label = makeElement(name('label'), {
 		stores: [isInvalid, options.disabled, ids.label],
 		returned: ([$isInvalid, $disabled, $labelId]) => {
 			return {
 				id: $labelId,
 				'data-invalid': $isInvalid ? '' : undefined,
 				'data-disabled': $disabled ? '' : undefined,
-			};
+			} as const;
 		},
 		action: (node: HTMLElement) => {
 			const unsub = executeCallbacks(
 				addMeltEventListener(node, 'click', () => {
-					const firstSegment = getFirstSegment(get(ids.field));
+					const firstSegment = getFirstSegment(ids.field.get());
 					if (!firstSegment) return;
 					sleep(1).then(() => firstSegment.focus());
 				}),
@@ -214,7 +215,7 @@ export function createDateRangeField(props?: CreateDateRangeFieldProps) {
 		}
 	);
 
-	const field = builder(name('field'), {
+	const field = makeElement(name('field'), {
 		stores: [isCompleted, isInvalid, fieldIdDeps],
 		returned: ([$isCompleted, $isInvalid, $ids]) => {
 			const describedBy = $isCompleted
@@ -227,19 +228,19 @@ export function createDateRangeField(props?: CreateDateRangeFieldProps) {
 				'aria-labelledby': $ids.label,
 				'aria-describedby': describedBy,
 				'data-invalid': $isInvalid ? '' : undefined,
-			};
+			} as const;
 		},
 		action: () => {
 			getAnnouncer();
 			return {
 				destroy() {
-					removeDescriptionElement(get(ids.description));
+					removeDescriptionElement(ids.description.get());
 				},
 			};
 		},
 	});
 
-	const validation = builder(name('validation'), {
+	const validation = makeElement(name('validation'), {
 		stores: [isInvalid, ids.validation],
 		returned: ([$isInvalid, $validationId]) => {
 			const validStyle = styleToString({
@@ -250,7 +251,7 @@ export function createDateRangeField(props?: CreateDateRangeFieldProps) {
 				id: $validationId,
 				'data-invalid': $isInvalid ? '' : undefined,
 				style: $isInvalid ? undefined : validStyle,
-			};
+			} as const;
 		},
 	});
 
@@ -287,8 +288,8 @@ export function createDateRangeField(props?: CreateDateRangeFieldProps) {
 	 */
 
 	effect([value], ([$value]) => {
-		const $startValue = get(startValue);
-		const $endValue = get(endValue);
+		const $startValue = startValue.get();
+		const $endValue = endValue.get();
 
 		if ($value?.start && $value?.end) {
 			if ($value.start !== $startValue) {
@@ -302,7 +303,7 @@ export function createDateRangeField(props?: CreateDateRangeFieldProps) {
 	});
 
 	effect([startValue, endValue], ([$startValue, $endValue]) => {
-		const $value = get(value);
+		const $value = value.get();
 
 		if ($value && $value?.start === $startValue && $value?.end === $endValue) return;
 

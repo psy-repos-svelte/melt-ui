@@ -1,22 +1,22 @@
-import {
-	effect,
-	toWritableStores,
-	omit,
-	builder,
-	addMeltEventListener,
-} from '$lib/internal/helpers/index.js';
-import { get } from 'svelte/store';
 import { createCalendar, createDateField, createPopover } from '$lib/builders/index.js';
-import type { CreateDatePickerProps } from './types.js';
 import {
 	handleSegmentNavigation,
 	isSegmentNavigationKey,
 } from '$lib/internal/helpers/date/index.js';
+import {
+	addMeltEventListener,
+	makeElement,
+	effect,
+	omit,
+	toWritableStores,
+} from '$lib/internal/helpers/index.js';
+import type { CreateDatePickerProps } from './types.js';
 
-import { dateStore, createFormatter, getDefaultDate } from '$lib/internal/helpers/date/index.js';
 import { pickerOpenFocus } from '$lib/internal/helpers/date/focus.js';
+import { createFormatter, dateStore, getDefaultDate } from '$lib/internal/helpers/date/index.js';
 import type { MeltActionReturn } from '$lib/internal/types.js';
 import type { DatePickerEvents } from './events.js';
+import { defaults as calendarDefaults } from '../calendar/create.js';
 
 const defaults = {
 	isDateDisabled: undefined,
@@ -25,7 +25,7 @@ const defaults = {
 	positioning: {
 		placement: 'bottom',
 	},
-	closeOnEscape: true,
+	escapeBehavior: 'close',
 	closeOnOutsideClick: true,
 	onOutsideClick: undefined,
 	preventScroll: false,
@@ -37,6 +37,18 @@ const defaults = {
 	minValue: undefined,
 	maxValue: undefined,
 	weekdayFormat: 'narrow',
+	...omit(
+		calendarDefaults,
+		'isDateDisabled',
+		'isDateUnavailable',
+		'value',
+		'locale',
+		'disabled',
+		'readonly',
+		'minValue',
+		'maxValue',
+		'weekdayFormat'
+	),
 } satisfies CreateDatePickerProps;
 
 export function createDatePicker(props?: CreateDatePickerProps) {
@@ -65,7 +77,7 @@ export function createDatePicker(props?: CreateDatePickerProps) {
 		defaultOpen: withDefaults.defaultOpen,
 		open: withDefaults.open,
 		disableFocusTrap: withDefaults.disableFocusTrap,
-		closeOnEscape: withDefaults.closeOnEscape,
+		escapeBehavior: withDefaults.escapeBehavior,
 		preventScroll: withDefaults.preventScroll,
 		onOpenChange: withDefaults.onOpenChange,
 		closeOnOutsideClick: withDefaults.closeOnOutsideClick,
@@ -76,14 +88,15 @@ export function createDatePicker(props?: CreateDatePickerProps) {
 		onOutsideClick: withDefaults.onOutsideClick,
 	});
 
-	const trigger = builder('popover-trigger', {
-		stores: [popover.elements.trigger],
-		returned: ([$trigger]) => {
+	const trigger = makeElement('popover-trigger', {
+		stores: [popover.elements.trigger, options.disabled],
+		returned: ([$trigger, $disabled]) => {
 			return {
 				...omit($trigger, 'action'),
 				'aria-label': 'Open date picker',
 				'data-segment': 'trigger',
-			};
+				disabled: $disabled ? true : undefined,
+			} as const;
 		},
 		action: (node: HTMLElement): MeltActionReturn<DatePickerEvents['trigger']> => {
 			const unsubKeydown = addMeltEventListener(node, 'keydown', handleTriggerKeydown);
@@ -98,7 +111,7 @@ export function createDatePicker(props?: CreateDatePickerProps) {
 			};
 		},
 	});
-	const formatter = createFormatter(get(options.locale));
+	const formatter = createFormatter(options.locale.get());
 
 	effect([options.locale], ([$locale]) => {
 		dateField.options.locale.set($locale);
@@ -129,6 +142,18 @@ export function createDatePicker(props?: CreateDatePickerProps) {
 	effect([options.maxValue], ([$maxValue]) => {
 		dateField.options.maxValue.set($maxValue);
 		calendar.options.maxValue.set($maxValue);
+	});
+
+	effect([options.numberOfMonths], ([$numberOfMonths]) => {
+		calendar.options.numberOfMonths.set($numberOfMonths);
+	});
+
+	effect([options.fixedWeeks], ([$fixedWeeks]) => {
+		calendar.options.fixedWeeks.set($fixedWeeks);
+	});
+
+	effect([options.weekStartsOn], ([$weekStartsOn]) => {
+		calendar.options.weekStartsOn.set($weekStartsOn);
 	});
 
 	const dateFieldOptions = omit(
@@ -162,7 +187,7 @@ export function createDatePicker(props?: CreateDatePickerProps) {
 
 	effect([open], ([$open]) => {
 		if (!$open) {
-			const $value = get(value);
+			const $value = value.get();
 			if ($value) {
 				placeholder.set($value);
 			} else {
@@ -174,7 +199,7 @@ export function createDatePicker(props?: CreateDatePickerProps) {
 	function handleTriggerKeydown(e: KeyboardEvent) {
 		if (isSegmentNavigationKey(e.key)) {
 			e.preventDefault();
-			handleSegmentNavigation(e, get(dateField.ids.field));
+			handleSegmentNavigation(e, dateField.ids.field.get());
 		}
 	}
 

@@ -1,4 +1,4 @@
-import type { createTableOfContents } from './create';
+import type { createTableOfContents } from './create.js';
 
 export type Heading = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 
@@ -19,6 +19,8 @@ export type ActiveType =
 export type HeadingFilterFn = (heading: HTMLHeadingElement) => boolean;
 
 export type ScrollFn = (id: string) => void;
+
+export type PushStateFn = (url: string | URL, state: object) => void;
 
 export type CreateTableOfContentsArgs = {
 	/**
@@ -49,6 +51,10 @@ export type CreateTableOfContentsArgs = {
 	 */
 	activeType?: ActiveType;
 	/**
+	 * The root margin for the intersection observer. Refer to the [MDN docs](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserver/rootMargin) for more information.
+	 */
+	rootMargin?: string;
+	/**
 	 * A custom filter function for headings.
 	 */
 	headingFilterFn?: HeadingFilterFn;
@@ -56,6 +62,11 @@ export type CreateTableOfContentsArgs = {
 	 * A custom scroll function.
 	 */
 	scrollFn?: ScrollFn;
+
+	/**
+	 * A custom pushState function, expected to be SvelteKit's pushState function.
+	 */
+	pushStateFn?: PushStateFn;
 };
 
 export type ElementHeadingLU = {

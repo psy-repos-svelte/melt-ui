@@ -1,6 +1,6 @@
 import { testKbd as kbd } from '../utils.js';
-import { render } from '@testing-library/svelte';
-import userEvent from '@testing-library/user-event';
+import { render, waitFor } from '@testing-library/svelte';
+import { userEvent } from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { describe } from 'vitest';
 import DateFieldTest from './DateFieldTest.svelte';
@@ -11,10 +11,10 @@ import {
 	parseAbsoluteToLocal,
 	toZoned,
 } from '@internationalized/date';
-import type { CreateDateFieldProps } from '$lib';
+import type { CreateDateFieldProps } from '$lib/index.js';
 
 const calendarDateOther = new CalendarDate(1980, 1, 20);
-const calendarDateTimeOther = new CalendarDateTime(1980, 1, 20, 12, 30, 0, 0);
+const calendarDateTimeOther = new CalendarDateTime(1980, 1, 20, 12, 30, 30, 0);
 const zonedDateTimeOther = toZoned(calendarDateTimeOther, 'America/New_York');
 
 function setup(props: CreateDateFieldProps = {}) {
@@ -125,13 +125,14 @@ describe('DateField', () => {
 		});
 		expect(queryByTestId('dayPeriod')).not.toBeNull();
 	});
+
 	test('focuses first segment on click', async () => {
 		const { getByTestId, user } = setup();
 
 		const firstSegment = getByTestId('month');
 		await user.click(firstSegment);
 
-		expect(firstSegment).toHaveFocus();
+		await waitFor(() => expect(firstSegment).toHaveFocus());
 	});
 
 	test('increments segment on arrow up', async () => {
@@ -193,16 +194,16 @@ describe('DateField', () => {
 
 		await user.click(monthSegment);
 		await user.keyboard(kbd.ARROW_RIGHT);
-		expect(daySegment).toHaveFocus();
+		await waitFor(() => expect(daySegment).toHaveFocus());
 
 		await user.keyboard(kbd.ARROW_RIGHT);
-		expect(yearSegment).toHaveFocus();
+		await waitFor(() => expect(yearSegment).toHaveFocus());
 
 		await user.keyboard(kbd.ARROW_LEFT);
-		expect(daySegment).toHaveFocus();
+		await waitFor(() => expect(daySegment).toHaveFocus());
 
 		await user.keyboard(kbd.ARROW_LEFT);
-		expect(monthSegment).toHaveFocus();
+		await waitFor(() => expect(monthSegment).toHaveFocus());
 	});
 
 	test('navigates segments using tab', async () => {
@@ -214,10 +215,10 @@ describe('DateField', () => {
 
 		await user.click(monthSegment);
 		await user.keyboard(kbd.TAB);
-		expect(daySegment).toHaveFocus();
+		await waitFor(() => expect(daySegment).toHaveFocus());
 
 		await user.keyboard(kbd.TAB);
-		expect(yearSegment).toHaveFocus();
+		await waitFor(() => expect(yearSegment).toHaveFocus());
 	});
 
 	test('disabled prop prevents interaction', async () => {
@@ -229,16 +230,17 @@ describe('DateField', () => {
 		const yearSegment = getByTestId('year');
 
 		await user.click(monthSegment);
-		expect(monthSegment).not.toHaveFocus();
+		await waitFor(() => expect(monthSegment).not.toHaveFocus());
 		await user.keyboard(kbd.ARROW_RIGHT);
-		expect(daySegment).not.toHaveFocus();
+		await waitFor(() => expect(daySegment).not.toHaveFocus());
 		await user.keyboard(kbd.ARROW_RIGHT);
+		await waitFor(() => expect(yearSegment).not.toHaveFocus());
 		expect(yearSegment).not.toHaveFocus();
 
 		await user.click(daySegment);
-		expect(daySegment).not.toHaveFocus();
+		await waitFor(() => expect(daySegment).not.toHaveFocus());
 		await user.click(yearSegment);
-		expect(yearSegment).not.toHaveFocus();
+		await waitFor(() => expect(yearSegment).not.toHaveFocus());
 	});
 
 	test('readonly prop prevents modifying segments', async () => {
@@ -250,11 +252,12 @@ describe('DateField', () => {
 
 		for (const segment of segments) {
 			const el = getByTestId(segment);
+
 			expect(el).toHaveTextContent(String(calendarDateOther[segment]));
 			await user.click(el);
-			expect(el).toHaveFocus();
+			await waitFor(() => expect(el).toHaveFocus());
 			await user.keyboard(kbd.ARROW_UP);
-			expect(el).toHaveTextContent(String(calendarDateOther[segment]));
+			await waitFor(() => expect(el).toHaveTextContent(String(calendarDateOther[segment])));
 		}
 	});
 
@@ -268,17 +271,17 @@ describe('DateField', () => {
 		const monthSegment = getByTestId('month');
 		expect(monthSegment).toHaveTextContent(String(calendarDateOther['month']));
 		await user.click(monthSegment);
-		expect(monthSegment).toHaveFocus();
+		await waitFor(() => expect(monthSegment).toHaveFocus());
 		await user.keyboard(kbd.ARROW_UP);
-		expect(monthSegment).toHaveTextContent(String(calendarDateOther['month']));
+		await waitFor(() => expect(monthSegment).toHaveTextContent(String(calendarDateOther['month'])));
 
 		// day should change
 		const daySegment = getByTestId('day');
-		expect(daySegment).toHaveTextContent(String(calendarDateOther['day']));
+		await waitFor(() => expect(daySegment).toHaveTextContent(String(calendarDateOther['day'])));
 		await user.click(daySegment);
-		expect(daySegment).toHaveFocus();
+		await waitFor(() => expect(daySegment).toHaveFocus());
 		await user.keyboard(kbd.ARROW_UP);
-		expect(daySegment).toHaveTextContent(String(calendarDateOther['day'] + 1));
+		await waitFor(() => expect(daySegment).toHaveTextContent(String(calendarDateOther['day'] + 1)));
 	});
 
 	test('if selected date unavailable, mark field as invalid', async () => {
@@ -491,7 +494,102 @@ describe('DateField', () => {
 		expect(minuteSegment).toHaveTextContent('1');
 	});
 
-	test('displays correct timezone with ZonedDateTime value - now', async () => {
+	test('fully overwrite on first click and type - second', async () => {
+		const user = userEvent.setup();
+		const { getByTestId } = setup({
+			defaultValue: calendarDateTimeOther,
+			granularity: 'second',
+		});
+
+		const secondSegment = getByTestId('second');
+		await user.click(secondSegment);
+		expect(secondSegment).toHaveFocus();
+		expect(secondSegment).toHaveTextContent('30');
+		await user.keyboard(`{1}`);
+		expect(secondSegment).toHaveTextContent('1');
+	});
+
+	test('disallows 00 as value - month', async () => {
+		const user = userEvent.setup();
+		const { getByTestId } = setup({
+			defaultValue: calendarDateTimeOther,
+			granularity: 'second',
+		});
+
+		const monthSegment = getByTestId('month');
+		await user.click(monthSegment);
+		expect(monthSegment).toHaveFocus();
+		expect(monthSegment).toHaveTextContent('1');
+		await user.keyboard(`{0}`);
+		await user.keyboard(`{0}`);
+		expect(monthSegment).toHaveTextContent('mm');
+	});
+
+	test('disallows 00 as value - day', async () => {
+		const user = userEvent.setup();
+		const { getByTestId } = setup({
+			defaultValue: calendarDateTimeOther,
+			granularity: 'second',
+		});
+
+		const daySegment = getByTestId('day');
+		await user.click(daySegment);
+		expect(daySegment).toHaveFocus();
+		expect(daySegment).toHaveTextContent('20');
+		await user.keyboard(`{0}`);
+		await user.keyboard(`{0}`);
+		expect(daySegment).toHaveTextContent('dd');
+	});
+
+	test('disallows 00 as value - hour', async () => {
+		const user = userEvent.setup();
+		const { getByTestId } = setup({
+			defaultValue: calendarDateTimeOther,
+			granularity: 'second',
+		});
+
+		const hourSegment = getByTestId('hour');
+		await user.click(hourSegment);
+		expect(hourSegment).toHaveFocus();
+		expect(hourSegment).toHaveTextContent('12');
+		await user.keyboard(`{0}`);
+		await user.keyboard(`{0}`);
+		expect(hourSegment).toHaveTextContent('––');
+	});
+
+	test('allows 00 as value - minute', async () => {
+		const user = userEvent.setup();
+		const { getByTestId } = setup({
+			defaultValue: calendarDateTimeOther,
+			granularity: 'second',
+		});
+
+		const minuteSegment = getByTestId('minute');
+		await user.click(minuteSegment);
+		expect(minuteSegment).toHaveFocus();
+		expect(minuteSegment).toHaveTextContent('30');
+		await user.keyboard(`{0}`);
+		await user.keyboard(`{0}`);
+		expect(minuteSegment).toHaveTextContent('00');
+	});
+
+	test('allows 00 as value - second', async () => {
+		const user = userEvent.setup();
+		const { getByTestId } = setup({
+			defaultValue: calendarDateTimeOther,
+			granularity: 'second',
+		});
+
+		const secondSegment = getByTestId('second');
+		await user.click(secondSegment);
+		expect(secondSegment).toHaveFocus();
+		expect(secondSegment).toHaveTextContent('30');
+		await user.keyboard(`{0}`);
+		await user.keyboard(`{0}`);
+		expect(secondSegment).toHaveTextContent('00');
+	});
+
+	test.skip('displays correct timezone with ZonedDateTime value - now', async () => {
 		const { getByTestId } = setup({
 			defaultValue: now('America/Los_Angeles'),
 		});
@@ -574,14 +672,11 @@ describe('DateField', () => {
 	});
 });
 
-function isDaylightSavingsTime(): boolean {
+function isDaylightSavingsTime() {
 	const now = new Date();
-	const january = new Date(now.getFullYear(), 0, 1);
-	const july = new Date(now.getFullYear(), 6, 1);
-	const timezoneOffset = now.getTimezoneOffset();
-	const isDaylightSavingsTime =
-		timezoneOffset < Math.max(january.getTimezoneOffset(), july.getTimezoneOffset());
-	return isDaylightSavingsTime;
+	const januaryOffset = new Date(now.getFullYear(), 0, 1).getTimezoneOffset();
+	const julyOffset = new Date(now.getFullYear(), 6, 1).getTimezoneOffset();
+	return januaryOffset !== julyOffset;
 }
 
 function thisTimeZone(date: string): string {

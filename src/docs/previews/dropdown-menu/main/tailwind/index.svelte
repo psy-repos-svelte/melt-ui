@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createDropdownMenu, melt } from '$lib/index.js';
 	import { writable } from 'svelte/store';
-	import { AlignJustify, ChevronRight, Check } from 'lucide-svelte';
+	import { AlignJustify, ChevronRight, Check } from '$icons/index.js';
 	import { fly } from 'svelte/transition';
 
 	const settingsSync = writable(true);
@@ -54,7 +54,7 @@
 	use:melt={$trigger}
 	aria-label="Update dimensions"
 >
-	<AlignJustify class="square-4" />
+	<AlignJustify class="size-4" />
 	<span class="sr-only">Open Popover</span>
 </button>
 
@@ -70,7 +70,7 @@
 		<div class="item" use:melt={$checkboxItem}>
 			<div class="check">
 				{#if $settingsSync}
-					<Check class="square-4" />
+					<Check class="size-4" />
 				{/if}
 			</div>
 			Settings Sync is On
@@ -78,7 +78,7 @@
 		<div class="item !hidden md:!flex" use:melt={$subTrigger}>
 			Profiles
 			<div class="rightSlot">
-				<ChevronRight class="square-4" />
+				<ChevronRight class="size-4" />
 			</div>
 		</div>
 		{#if $subOpen}
@@ -107,7 +107,7 @@
 		<div class="item" use:melt={$checkboxItemA}>
 			<div class="check">
 				{#if $hideMeltUI}
-					<Check class="square-4" />
+					<Check class="size-4" />
 				{/if}
 			</div>
 			Hide Melt UI
@@ -128,7 +128,7 @@
 
 <style lang="postcss">
 	.menu {
-		@apply z-10 flex max-h-[300px] min-w-[220px] flex-col shadow-lg;
+		@apply z-40 flex max-h-[300px] min-w-[220px] flex-col shadow-lg;
 		@apply rounded-md bg-white p-1 shadow-neutral-900/30 lg:max-h-none;
 		@apply ring-0 !important;
 	}
@@ -137,7 +137,7 @@
 	}
 	.item {
 		@apply relative h-6 min-h-[24px] select-none rounded-sm pl-6 pr-1;
-		@apply z-20 text-magnum-900 outline-none;
+		@apply z-40 text-magnum-900 outline-none;
 		@apply data-[highlighted]:bg-magnum-200 data-[highlighted]:text-magnum-900;
 		@apply data-[disabled]:text-neutral-300;
 		@apply flex items-center text-sm leading-none;

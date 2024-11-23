@@ -1,18 +1,18 @@
 import {
 	addMeltEventListener,
-	builder,
+	makeElement,
 	disabledAttr,
 	executeCallbacks,
 	kbd,
 	omit,
 	overridable,
-	styleToString,
 	toWritableStores,
 } from '$lib/internal/helpers/index.js';
 import type { Defaults, MeltActionReturn } from '$lib/internal/types.js';
-import { derived, get, writable } from 'svelte/store';
+import { derived, writable } from 'svelte/store';
 import type { CheckboxEvents } from './events.js';
 import type { CreateCheckboxProps } from './types.js';
+import { createHiddenInput } from '../hidden-input/create.js';
 
 const defaults = {
 	disabled: false,
@@ -32,7 +32,7 @@ export function createCheckbox(props?: CreateCheckboxProps) {
 	const checkedWritable = withDefaults.checked ?? writable(withDefaults.defaultChecked);
 	const checked = overridable(checkedWritable, withDefaults?.onCheckedChange);
 
-	const root = builder('checkbox', {
+	const root = makeElement('checkbox', {
 		stores: [checked, disabled, required],
 		returned: ([$checked, $disabled, $required]) => {
 			return {
@@ -53,7 +53,7 @@ export function createCheckbox(props?: CreateCheckboxProps) {
 					if (e.key === kbd.ENTER) e.preventDefault();
 				}),
 				addMeltEventListener(node, 'click', () => {
-					if (get(disabled)) return;
+					if (disabled.get()) return;
 
 					checked.update((value) => {
 						if (value === 'indeterminate') return true;
@@ -68,28 +68,14 @@ export function createCheckbox(props?: CreateCheckboxProps) {
 		},
 	});
 
-	const input = builder('checkbox-input', {
-		stores: [checked, name, value, required, disabled],
-		returned: ([$checked, $name, $value, $required, $disabled]) => {
-			return {
-				type: 'checkbox' as const,
-				'aria-hidden': true,
-				hidden: true,
-				tabindex: -1,
-				name: $name,
-				value: $value,
-				checked: $checked === 'indeterminate' ? false : $checked,
-				required: $required,
-				disabled: disabledAttr($disabled),
-				style: styleToString({
-					position: 'absolute',
-					opacity: 0,
-					'pointer-events': 'none',
-					margin: 0,
-					transform: 'translateX(-100%)',
-				}),
-			} as const;
-		},
+	const input = createHiddenInput({
+		value,
+		checked,
+		type: 'checkbox',
+		name: name,
+		disabled: disabled,
+		required,
+		prefix: 'checkbox',
 	});
 
 	const isIndeterminate = derived(checked, ($checked) => $checked === 'indeterminate');

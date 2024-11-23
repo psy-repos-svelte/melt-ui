@@ -1,7 +1,7 @@
 import { ATTRS, KBD, PROPS } from '$docs/constants.js';
 import type { KeyboardSchema } from '$docs/types.js';
 import { builderSchema, elementSchema } from '$docs/utils/index.js';
-import { dialogIdParts } from '$lib';
+import { dialogIdParts } from '$lib/index.js';
 import { dialogEvents } from '$lib/builders/dialog/events.js';
 import type { BuilderData } from './index.js';
 
@@ -16,7 +16,7 @@ const OPTION_PROPS = [
 		description: 'The `role` attribute of the dialog element.',
 	},
 	PROPS.PREVENT_SCROLL,
-	PROPS.CLOSE_ON_ESCAPE,
+	PROPS.ESCAPE_BEHAVIOR,
 	PROPS.CLOSE_ON_OUTSIDE_CLICK,
 	PROPS.PORTAL,
 	PROPS.FORCE_VISIBLE,

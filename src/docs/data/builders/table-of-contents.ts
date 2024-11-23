@@ -1,8 +1,8 @@
-import { ATTRS, DESCRIPTIONS, KBD } from '$docs/constants';
-import type { APISchema, KeyboardSchema } from '$docs/types';
-import type { BuilderData } from '.';
-import { tableOfContentsEvents } from '$lib/builders/table-of-contents/events';
-import { elementSchema } from '$docs/utils';
+import { ATTRS, DESCRIPTIONS, KBD } from '$docs/constants.js';
+import type { APISchema, KeyboardSchema } from '$docs/types.js';
+import type { BuilderData } from './index.js';
+import { tableOfContentsEvents } from '$lib/builders/table-of-contents/events.js';
+import { elementSchema } from '$docs/utils/index.js';
 
 const builder: APISchema = {
 	title: 'createTableOfContents',
@@ -36,6 +36,12 @@ const builder: APISchema = {
 `'lowest-parents'` means that parents of the heading with the lowest visible content are also considered active, and the same goes for `'highest-parents'`.",
 		},
 		{
+			name: 'rootMargin',
+			type: 'string',
+			description:
+				'The root margin for the intersection observer. Refer to the [MDN docs](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserver/rootMargin) for more information.',
+		},
+		{
 			name: 'scrollOffset',
 			type: 'number',
 			default: '0',
@@ -59,6 +65,12 @@ const builder: APISchema = {
 			type: 'ScrollFn',
 			description:
 				'Allows you to overwrite the default scroll function with your own custom one. The scroll function gets the heading id passed to it.',
+		},
+		{
+			name: 'pushStateFn',
+			type: 'PushStateFn',
+			description:
+				"Allows you to overwrite the browser pushState function. The pushState function receives the fragment that corresponds to the heading id. It is intended to be used with SvelteKit's navigation module.",
 		},
 	],
 	builders: [

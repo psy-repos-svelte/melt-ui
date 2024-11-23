@@ -2,7 +2,7 @@
 	import { createDialog, melt } from '$lib/index.js';
 	/** Internal helpers */
 	import { flyAndScale } from '$docs/utils/index.js';
-	import { X } from 'lucide-svelte';
+	import { X } from '$icons/index.js';
 
 	const {
 		elements: {
@@ -38,12 +38,12 @@
 >
 	Open Dialog
 </button>
-<div class="force-dark" use:melt={$portalled}>
-	{#if $open}
+{#if $open}
+	<div class="force-dark" use:melt={$portalled}>
 		<div use:melt={$overlay} class="fixed inset-0 z-50 bg-black/50" />
 		<div
-			class="fixed left-[50%] top-[50%] z-50 max-h-[85vh] w-[90vw]
-            max-w-[450px] translate-x-[-50%] translate-y-[-50%] rounded-md bg-white
+			class="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[90vw]
+            max-w-[450px] -translate-x-1/2 -translate-y-1/2 rounded-md bg-white
             p-6 shadow-lg"
 			transition:flyAndScale={{
 				duration: 150,
@@ -75,15 +75,15 @@
 					Open second
 				</button>
 			</div>
-			<div class="force-dark" use:melt={$portalledNested}>
-				{#if $openNested}
+			{#if $openNested}
+				<div class="force-dark" use:melt={$portalledNested}>
 					<div
 						use:melt={$overlayNested}
 						class="fixed inset-0 z-50 bg-black/75"
 					/>
 					<div
-						class="fixed left-[50%] top-[50%] z-50 max-h-[85vh] w-[90vw]
-                        max-w-[500px] translate-x-[-50%] translate-y-[-50%] rounded-md bg-white
+						class="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[90vw]
+                        max-w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-md bg-white
                         p-6 shadow-2xl"
 						transition:flyAndScale={{
 							duration: 150,
@@ -121,11 +121,11 @@
                             appearance-none items-center justify-center rounded-full text-magnum-800
                             hover:bg-magnum-100 focus:shadow-magnum-400"
 						>
-							<X class="square-4" />
+							<X class="size-4" />
 						</button>
 					</div>
-				{/if}
-			</div>
+				</div>
+			{/if}
 		</div>
 		<button
 			use:melt={$close}
@@ -135,5 +135,5 @@
 		>
 			<X />
 		</button>
-	{/if}
-</div>
+	</div>
+{/if}

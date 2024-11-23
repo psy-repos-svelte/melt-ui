@@ -24,7 +24,7 @@
 	import { dev } from '$app/environment';
 	import { page } from '$app/stores';
 	import { JsIndicator, SiteHeader, TailwindIndicator } from '$docs/components/index.js';
-	import { cn } from '$docs/utils';
+	import { cn } from '$docs/utils/index.js';
 
 	import { ModeWatcher } from 'mode-watcher';
 
@@ -45,6 +45,13 @@
 
 <ModeWatcher defaultMode="dark" />
 
+<a
+	href="#main"
+	class="force-dark fixed top-[-20rem] z-0 ml-56 rounded-br-xl rounded-tl-xl bg-neutral-900 px-2 py-1 text-neutral-100 focus:top-4 focus:z-[1000] max-sm:right-[6]"
+	tabindex="0"
+>
+	Skip to main content
+</a>
 <div class="relative flex min-h-screen flex-col md:flex-col-reverse" id="page">
 	<div class="flex flex-1">
 		<slot />

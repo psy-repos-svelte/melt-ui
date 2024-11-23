@@ -1,12 +1,14 @@
 import { ATTRS, DESCRIPTIONS, KBD, PROPS, SEE } from '$docs/constants.js';
 import type { APISchema, KeyboardSchema } from '$docs/types.js';
 import {
-	toKebabCase,
 	builderSchema,
 	elementSchema,
+	floatingSideAndAlignDataAttrs,
+	floatingSideDataAttr,
 	genElements,
 	genProps,
 	propsToOptions,
+	toKebabCase,
 } from '$docs/utils/index.js';
 
 import { menuEvents } from '$lib/builders/menu/events.js';
@@ -15,7 +17,8 @@ export const menuBuilderProps = [
 	PROPS.ARROW_SIZE,
 	PROPS.DIR,
 	PROPS.PREVENT_SCROLL,
-	PROPS.CLOSE_ON_ESCAPE,
+	PROPS.ESCAPE_BEHAVIOR,
+	PROPS.PREVENT_TEXT_SELECTION_OVERFLOW,
 	PROPS.PORTAL,
 	PROPS.CLOSE_ON_OUTSIDE_CLICK,
 	PROPS.LOOP,
@@ -36,7 +39,8 @@ export const menuBuilderOptions = [
 	PROPS.ARROW_SIZE,
 	PROPS.DIR,
 	PROPS.PREVENT_SCROLL,
-	PROPS.CLOSE_ON_ESCAPE,
+	PROPS.ESCAPE_BEHAVIOR,
+	PROPS.PREVENT_TEXT_SELECTION_OVERFLOW,
 	PROPS.PORTAL,
 	PROPS.CLOSE_ON_OUTSIDE_CLICK,
 	PROPS.LOOP(),
@@ -49,6 +53,7 @@ export function getMenuSchemas(name: Menu) {
 	return {
 		menu: getMenuMenuSchema(name),
 		arrow: getMenuArrowSchema(name),
+		overlay: getMenuOverlaySchema(name),
 		submenuBuilder: getMenuSubmenuBuilderSchema(),
 		submenu: getMenuSubmenuSchema(name),
 		subTrigger: getMenuSubTriggerSchema(name),
@@ -193,6 +198,7 @@ function getMenuMenuSchema(builderName: string) {
 	return elementSchema('menu', {
 		description: `The element which wraps the entire menu.`,
 		dataAttributes: [
+			...floatingSideAndAlignDataAttrs,
 			{
 				name: 'data-state',
 				value: ATTRS.OPEN_CLOSED,
@@ -206,10 +212,28 @@ function getMenuMenuSchema(builderName: string) {
 	});
 }
 
+function getMenuOverlaySchema(builderName: string) {
+	return elementSchema('overlay', {
+		description:
+			'An optional overlay element to prevent interaction with the rest of the page while the menu is open',
+		dataAttributes: [
+			{
+				name: 'data-state',
+				value: ATTRS.OPEN_CLOSED,
+			},
+			{
+				name: `data-melt-${toKebabCase(builderName)}-overlay`,
+				value: ATTRS.MELT('overlay'),
+			},
+		],
+	});
+}
+
 export function getMenuArrowSchema(builderName: string) {
 	return elementSchema('arrow', {
 		description: `An optional arrow element which points to the menu's trigger.`,
 		dataAttributes: [
+			floatingSideDataAttr,
 			{
 				name: 'data-arrow',
 				value: ATTRS.TRUE,
@@ -225,7 +249,6 @@ function getMenuItemSchema(builderName: Menu) {
 	const ITEM = 'item';
 	return elementSchema(ITEM, {
 		description: 'A basic menu item.',
-		props: [PROPS.DISABLED],
 		dataAttributes: [
 			{
 				name: 'data-orientation',
@@ -352,6 +375,7 @@ function getMenuSubmenuSchema(name: string) {
 	return elementSchema('submenu', {
 		description: 'A submenu element displayed when its trigger is selected.',
 		dataAttributes: [
+			...floatingSideAndAlignDataAttrs,
 			{
 				name: 'data-state',
 				value: ATTRS.OPEN_CLOSED,

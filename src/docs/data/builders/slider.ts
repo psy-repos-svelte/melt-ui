@@ -39,6 +39,12 @@ const OPTION_PROPS = [
 		default: "'ltr'",
 		description: 'The direction of the slider.',
 	},
+	{
+		name: 'autoSort',
+		type: 'boolean',
+		default: 'true',
+		description: 'Whether to automatically sort the values array when using multiple thumbs.',
+	},
 	PROPS.DISABLED,
 ];
 const BUILDER_NAME = 'slider';
@@ -56,15 +62,20 @@ const builder = builderSchema(BUILDER_NAME, {
 		},
 		{
 			name: 'value',
-			type: 'Writable<number>',
+			type: 'Writable<number[]>',
 			description: 'A writable store that can be used to update the slider value.',
 			see: SEE.BRING_YOUR_OWN_STORE,
 		},
 		{
 			name: 'onValueChange',
-			type: 'ChangeFn<number>',
+			type: 'ChangeFn<number[]>',
 			description: 'A callback that is called when the value of the slider changes.',
 			see: SEE.CHANGE_FUNCTIONS,
+		},
+		{
+			name: 'onValueCommitted',
+			type: '(value: number[]) => void',
+			description: 'The callback invoked when the user has committed the value of the slider.',
 		},
 	],
 	elements: [
@@ -97,9 +108,10 @@ const builder = builderSchema(BUILDER_NAME, {
 			description: 'A writable store that can be used to get the current value of the slider.',
 		},
 		{
-			name: 'ticks',
-			type: 'Readable<number>',
-			description: 'A readable store that can be used to get the current number of ticks.',
+			name: 'active',
+			type: 'Readable<boolean>',
+			description:
+				'A readable store that can be used to get whether the slider is actively being interacted with.',
 		},
 	],
 	options: OPTION_PROPS,

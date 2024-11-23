@@ -1,6 +1,6 @@
 import {
 	addMeltEventListener,
-	builder,
+	makeElement,
 	createElHelpers,
 	disabledAttr,
 	executeCallbacks,
@@ -58,10 +58,11 @@ export const createAccordion = <Multiple extends boolean = false>(
 		return (key: string) => isSelected(key, $value);
 	});
 
-	const root = builder(name(), {
-		returned: () => ({
-			'data-melt-id': meltIds.root,
-		}),
+	const root = makeElement(name(), {
+		returned: () =>
+			({
+				'data-melt-id': meltIds.root,
+			} as const),
 	});
 
 	const parseItemProps = (props: AccordionItemProps) => {
@@ -80,7 +81,7 @@ export const createAccordion = <Multiple extends boolean = false>(
 		}
 	};
 
-	const item = builder(name('item'), {
+	const item = makeElement(name('item'), {
 		stores: value,
 		returned: ($value) => {
 			return (props: AccordionItemProps) => {
@@ -89,12 +90,12 @@ export const createAccordion = <Multiple extends boolean = false>(
 				return {
 					'data-state': isSelected(itemValue, $value) ? 'open' : 'closed',
 					'data-disabled': disabledAttr(disabled),
-				};
+				} as const;
 			};
 		},
 	});
 
-	const trigger = builder(name('trigger'), {
+	const trigger = makeElement(name('trigger'), {
 		stores: [value, disabled],
 		returned: ([$value, $disabled]) => {
 			return (props: AccordionItemProps) => {
@@ -108,7 +109,7 @@ export const createAccordion = <Multiple extends boolean = false>(
 					'data-disabled': disabledAttr(disabled),
 					'data-value': itemValue,
 					'data-state': isSelected(itemValue, $value) ? 'open' : 'closed',
-				};
+				} as const;
 			};
 		},
 		action: (node: HTMLElement): MeltActionReturn<AccordionEvents['trigger']> => {
@@ -168,21 +169,20 @@ export const createAccordion = <Multiple extends boolean = false>(
 		},
 	});
 
-	const content = builder(name('content'), {
+	const content = makeElement(name('content'), {
 		stores: [value, disabled, forceVisible],
 		returned: ([$value, $disabled, $forceVisible]) => {
 			return (props: AccordionItemProps) => {
 				const { value: itemValue } = parseItemProps(props);
-				const isVisible = isSelected(itemValue, $value) || $forceVisible;
+				const selected = isSelected(itemValue, $value);
+				const isVisible = selected || $forceVisible;
 				return {
-					'data-state': isVisible ? 'open' : 'closed',
+					'data-state': selected ? 'open' : 'closed',
 					'data-disabled': disabledAttr($disabled),
 					'data-value': itemValue,
 					hidden: isVisible ? undefined : true,
-					style: styleToString({
-						display: isVisible ? undefined : 'none',
-					}),
-				};
+					style: isVisible ? undefined : styleToString({ display: 'none' }),
+				} as const;
 			};
 		},
 		action: (node: HTMLElement) => {
@@ -202,7 +202,7 @@ export const createAccordion = <Multiple extends boolean = false>(
 		},
 	});
 
-	const heading = builder(name('heading'), {
+	const heading = makeElement(name('heading'), {
 		returned: () => {
 			return (props: AccordionHeadingProps) => {
 				const { level } = parseHeadingProps(props);
@@ -210,7 +210,7 @@ export const createAccordion = <Multiple extends boolean = false>(
 					role: 'heading',
 					'aria-level': level,
 					'data-heading-level': level,
-				};
+				} as const;
 			};
 		},
 	});

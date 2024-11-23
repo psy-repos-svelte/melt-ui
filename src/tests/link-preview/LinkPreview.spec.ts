@@ -1,9 +1,9 @@
 import { render, waitFor } from '@testing-library/svelte';
 import { axe } from 'jest-axe';
 import LinkPreviewTest from './LinkPreviewTest.svelte';
-import userEvent from '@testing-library/user-event';
-import type { CreateLinkPreviewProps } from '$lib';
-import { testKbd as kbd } from '../utils';
+import { userEvent } from '@testing-library/user-event';
+import type { CreateLinkPreviewProps } from '$lib/index.js';
+import { testKbd as kbd } from '../utils.js';
 
 function setup(props: CreateLinkPreviewProps = {}) {
 	const user = userEvent.setup();
@@ -45,9 +45,9 @@ describe('LinkPreview (Default)', () => {
 		await user.keyboard(kbd.ESCAPE);
 		await waitFor(() => expect(content).not.toBeVisible());
 	});
-	test('Respects the `closeOnEscape` prop', async () => {
+	test('Respects the `escapeBehavior` prop', async () => {
 		const { getByTestId, trigger, user } = setup({
-			closeOnEscape: false,
+			escapeBehavior: 'ignore',
 		});
 		const content = getByTestId('content');
 

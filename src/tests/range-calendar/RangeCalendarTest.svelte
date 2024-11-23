@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { createRangeCalendar, type CreateRangeCalendarProps } from '$lib/builders';
-	import { ChevronRight, ChevronLeft } from 'lucide-svelte';
-	import { melt } from '$lib';
-	import { removeUndefined } from '../utils';
+	import { createRangeCalendar, type CreateRangeCalendarProps } from '$lib/builders/index.js';
+	import { ChevronRight, ChevronLeft } from '$icons/index.js';
+	import { melt } from '$lib/index.js';
+	import { removeUndefined } from '../utils.js';
 
 	export let value: CreateRangeCalendarProps['value'] = undefined;
 	export let defaultValue: CreateRangeCalendarProps['defaultValue'] = undefined;
@@ -27,7 +27,14 @@
 	const {
 		elements: { calendar, heading, grid, cell, prevButton, nextButton },
 		states: { value: insideValue, months, headingValue, weekdays },
-		options: { weekdayFormat: weekdayFormatOption },
+		options: {
+			weekdayFormat: weekdayFormatOption,
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+			numberOfMonths: numberOfMonthsOption,
+			fixedWeeks: fixedWeeksOption,
+			locale: localeOption,
+			weekStartsOn: weekStartsOnOption,
+		},
 	} = createRangeCalendar(
 		removeUndefined({
 			value,
@@ -64,6 +71,10 @@
 			}
 		});
 	}
+
+	function cycleWeekStart() {
+		$weekStartsOnOption = (($weekStartsOnOption + 1) % 7) as typeof $weekStartsOnOption;
+	}
 </script>
 
 <main class="flex h-full">
@@ -91,7 +102,7 @@
 					{@const { weeks } = month}
 					<table use:melt={$grid} class="w-full" data-testid="grid-{i}">
 						<thead aria-hidden="true">
-							<tr>
+							<tr data-testid="weekdays">
 								{#each $weekdays as day, idx}
 									<th class="text-sm font-semibold text-magnum-800">
 										<div
@@ -129,6 +140,28 @@
 	<button on:click={cycleWeekdayFormat} data-testid="cycle-weekday-format">
 		Cycle weekdayFormat
 	</button>
+	<button
+		data-testid="numberOfMonths"
+		on:click={() => {
+			$numberOfMonthsOption++;
+		}}>numberOfMonths</button
+	>
+	<br />
+	<button data-testid="weekStartsOn" on:click={cycleWeekStart}>weekStartsOn</button>
+	<br />
+	<button
+		data-testid="fixedWeeks"
+		on:click={() => {
+			$fixedWeeksOption = !$fixedWeeksOption;
+		}}>fixedWeeksOption</button
+	>
+	<br />
+	<button
+		data-testid="locale"
+		on:click={() => {
+			$localeOption = 'it';
+		}}>setLocaleToIt</button
+	>
 </main>
 
 <style lang="postcss">

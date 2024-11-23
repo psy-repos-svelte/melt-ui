@@ -1,6 +1,15 @@
 import type { Stores, StoresValues } from 'svelte/store';
-import { safeOnDestroy } from '../lifecycle';
-import { derivedWithUnsubscribe } from './derivedWithUnsubscribe';
+import { derived } from 'svelte/store';
+import { noop } from '../index.js';
+import { safeOnDestroy } from '../lifecycle.js';
+
+type EffectOptions = {
+	/**
+	 * Whether to skip the first run
+	 * @default undefined
+	 */
+	skipFirstRun?: boolean;
+};
 
 /**
  * A utility function that creates an effect from a set of stores and a function.
@@ -9,25 +18,32 @@ import { derivedWithUnsubscribe } from './derivedWithUnsubscribe';
  * @template S - The type of the stores object
  * @param stores - The stores object to derive from
  * @param fn - The function to run when the stores change
+ * @param opts {@link EffectOptions}
  * @returns A function that can be used to unsubscribe the effect
  */
 export function effect<S extends Stores>(
 	stores: S,
-	fn: (values: StoresValues<S>) => (() => void) | void
+	fn: (values: StoresValues<S>) => (() => void) | void,
+	opts: EffectOptions = {}
 ): () => void {
+	const { skipFirstRun } = opts;
+	let isFirstRun = true;
+	let cb: (() => void) | void = undefined;
+
 	// Create a derived store that contains the stores object and an onUnsubscribe function
-	const unsub = derivedWithUnsubscribe(stores, (stores, onUnsubscribe) => {
-		return {
-			stores,
-			onUnsubscribe,
-		};
-	}).subscribe(({ stores, onUnsubscribe }) => {
-		const returned = fn(stores);
-		// If the function returns a cleanup function, call it when the effect is unsubscribed
-		if (returned) {
-			onUnsubscribe(returned);
+	const destroy = derived(stores, (stores) => {
+		cb?.();
+		if (isFirstRun && skipFirstRun) {
+			isFirstRun = false;
+		} else {
+			cb = fn(stores);
 		}
-	});
+	}).subscribe(noop);
+
+	const unsub = () => {
+		destroy();
+		cb?.();
+	};
 
 	// Automatically unsubscribe the effect when the component is destroyed
 	safeOnDestroy(unsub);

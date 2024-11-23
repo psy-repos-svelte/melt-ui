@@ -2,14 +2,14 @@ import { usePopper } from '$lib/internal/actions/index.js';
 import {
 	FIRST_LAST_KEYS,
 	SELECTION_KEYS,
-	addEventListener,
 	addHighlight,
 	addMeltEventListener,
-	builder,
+	makeElement,
 	createElHelpers,
 	derivedVisible,
 	effect,
 	executeCallbacks,
+	generateIds,
 	getNextFocusable,
 	getPortalDestination,
 	getPreviousFocusable,
@@ -19,17 +19,17 @@ import {
 	isHTMLElement,
 	kbd,
 	noop,
+	omit,
 	removeHighlight,
 	removeScroll,
 	styleToString,
 	toWritableStores,
-	generateIds,
-	omit,
+	portalAttr,
 } from '$lib/internal/helpers/index.js';
 import { safeOnDestroy, safeOnMount } from '$lib/internal/helpers/lifecycle.js';
 import type { MeltActionReturn } from '$lib/internal/types.js';
 import { tick } from 'svelte';
-import { get, writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 import {
 	applyAttrsIfDisabled,
 	createMenuBuilder,
@@ -40,6 +40,7 @@ import {
 } from '../menu/index.js';
 import type { MenubarEvents } from './events.js';
 import type { CreateMenubarMenuProps, CreateMenubarProps } from './types.js';
+import { withGet } from '$lib/internal/helpers/withGet.js';
 
 const MENUBAR_NAV_KEYS = [kbd.ARROW_LEFT, kbd.ARROW_RIGHT, kbd.HOME, kbd.END];
 
@@ -47,7 +48,7 @@ const { name } = createElHelpers<_MenuParts | 'menu'>('menubar');
 
 const defaults = {
 	loop: true,
-	closeOnEscape: true,
+	escapeBehavior: 'close',
 	preventScroll: false,
 } satisfies CreateMenubarProps;
 
@@ -58,18 +59,18 @@ export function createMenubar(props?: CreateMenubarProps) {
 	const withDefaults = { ...defaults, ...props } satisfies CreateMenubarProps;
 
 	const options = toWritableStores(omit(withDefaults, 'ids'));
-	const { loop, closeOnEscape, preventScroll } = options;
-	const activeMenu = writable<string>('');
+	const { loop, escapeBehavior, preventScroll } = options;
+	const activeMenu = withGet(writable<string>(''));
 
-	const nextFocusable = writable<HTMLElement | null>(null);
-	const prevFocusable = writable<HTMLElement | null>(null);
-	const lastFocusedMenuTrigger = writable<HTMLElement | null>(null);
-	const closeTimer = writable(0);
+	const nextFocusable = withGet(writable<HTMLElement | null>(null));
+	const prevFocusable = withGet(writable<HTMLElement | null>(null));
+	const lastFocusedMenuTrigger = withGet(writable<HTMLElement | null>(null));
+	// const closeTimer = withGet(writable(0));
 	let scrollRemoved = false;
 
 	const ids = toWritableStores({ ...generateIds(menubarIdParts), ...withDefaults.ids });
 
-	const menubar = builder(name(), {
+	const menubar = makeElement(name(), {
 		stores: [ids.menubar],
 		returned([$menubarId]) {
 			return {
@@ -77,7 +78,7 @@ export function createMenubar(props?: CreateMenubarProps) {
 				'data-melt-menubar': '',
 				'data-orientation': 'horizontal',
 				id: $menubarId,
-			};
+			} as const;
 		},
 		action: (node: HTMLElement) => {
 			const menuTriggers = Array.from(node.querySelectorAll('[data-melt-menubar-trigger]'));
@@ -97,9 +98,9 @@ export function createMenubar(props?: CreateMenubarProps) {
 		arrowSize: 8,
 		dir: 'ltr',
 		loop: false,
-		closeOnEscape: true,
+		escapeBehavior: 'close',
 		closeOnOutsideClick: true,
-		portal: undefined,
+		portal: 'body',
 		forceVisible: false,
 		defaultOpen: false,
 		typeahead: true,
@@ -107,23 +108,31 @@ export function createMenubar(props?: CreateMenubarProps) {
 		disableFocusFirstItem: false,
 		closeOnItemClick: true,
 		onOutsideClick: undefined,
+		preventTextSelectionOverflow: true,
 	} satisfies CreateMenubarMenuProps;
 
 	const createMenu = (props?: CreateMenubarMenuProps) => {
 		const withDefaults = { ...menuDefaults, ...props } satisfies CreateMenubarMenuProps;
-		const rootOpen = writable(false);
-		const rootActiveTrigger = writable<HTMLElement | null>(null);
+		const rootOpen = withGet(writable(false));
+		const rootActiveTrigger = withGet(writable<HTMLElement | null>(null));
 
 		// options
 		const options = toWritableStores(withDefaults);
-		const { positioning, portal, forceVisible, closeOnOutsideClick, onOutsideClick } = options;
+		const {
+			positioning,
+			portal,
+			forceVisible,
+			closeOnOutsideClick,
+			onOutsideClick,
+			preventTextSelectionOverflow,
+		} = options;
 
 		const m = createMenuBuilder({
 			rootOptions: { ...options, preventScroll },
-			rootOpen,
-			rootActiveTrigger,
-			nextFocusable,
-			prevFocusable,
+			rootOpen: withGet(rootOpen),
+			rootActiveTrigger: withGet(rootActiveTrigger),
+			nextFocusable: withGet(nextFocusable),
+			prevFocusable: withGet(prevFocusable),
 			selector: 'menubar-menu',
 			removeScroll: false,
 		});
@@ -134,20 +143,34 @@ export function createMenubar(props?: CreateMenubarProps) {
 			activeTrigger: rootActiveTrigger,
 		});
 
-		const menu = builder(name('menu'), {
-			stores: [isVisible, portal, m.ids.menu, m.ids.trigger, ids.menubar],
-			returned: ([$isVisible, $portal, $menuId, $triggerId, $menubarId]) => {
+		const menu = makeElement(name('menu'), {
+			stores: [
+				isVisible,
+				rootOpen,
+				rootActiveTrigger,
+				portal,
+				m.ids.menu,
+				m.ids.trigger,
+				ids.menubar,
+			],
+			returned: ([
+				$isVisible,
+				$rootOpen,
+				$rootActiveTrigger,
+				$portal,
+				$menuId,
+				$triggerId,
+				$menubarId,
+			]) => {
 				return {
 					role: 'menu',
 					hidden: $isVisible ? undefined : true,
-					style: styleToString({
-						display: $isVisible ? undefined : 'none',
-					}),
+					style: $isVisible ? undefined : styleToString({ display: 'none' }),
 					id: $menuId,
 					'aria-labelledby': $triggerId,
-					'data-state': $isVisible ? 'open' : 'closed',
+					'data-state': $rootOpen && $rootActiveTrigger ? 'open' : 'closed',
 					'data-melt-scope': $menubarId,
-					'data-portal': $portal ? '' : undefined,
+					'data-portal': portalAttr($portal),
 					tabindex: -1,
 				} as const;
 			},
@@ -161,33 +184,35 @@ export function createMenubar(props?: CreateMenubarProps) {
 						if (!($rootOpen && $rootActiveTrigger)) return;
 
 						tick().then(() => {
-							const popper = usePopper(node, {
+							unsubPopper();
+							unsubPopper = usePopper(node, {
 								anchorElement: $rootActiveTrigger,
 								open: rootOpen,
 								options: {
 									floating: $positioning,
 									portal: getPortalDestination(node, $portal),
-									clickOutside: $closeOnOutsideClick
-										? {
-												ignore: (e) => {
-													const target = e.target;
-													const menubarEl = document.getElementById(get(ids.menubar));
-													if (!menubarEl || !isElement(target)) return false;
-													return menubarEl.contains(target);
-												},
-												handler: (e) => {
-													get(onOutsideClick)?.(e);
-													if (e.defaultPrevented) return;
-													activeMenu.set('');
-												},
-										  }
-										: null,
+									modal: {
+										closeOnInteractOutside: $closeOnOutsideClick,
+										shouldCloseOnInteractOutside: (e) => {
+											onOutsideClick.get()?.(e);
+											if (e.defaultPrevented) return false;
+											const target = e.target;
+											const menubarEl = document.getElementById(ids.menubar.get());
+											if (!menubarEl || !isElement(target)) return true;
+											if (menubarEl.contains(target)) return false;
+											return true;
+										},
+										onClose: () => {
+											activeMenu.set('');
+										},
+									},
+									escapeKeydown: {
+										behaviorType: escapeBehavior,
+										handler: () => activeMenu.set(''),
+									},
+									preventTextSelectionOverflow: { enabled: preventTextSelectionOverflow },
 								},
-							});
-
-							if (popper && popper.destroy) {
-								unsubPopper = popper.destroy;
-							}
+							}).destroy;
 						});
 					}
 				);
@@ -231,7 +256,7 @@ export function createMenubar(props?: CreateMenubarProps) {
 						const isCharacterKey = e.key.length === 1;
 						const isModifierKey = e.ctrlKey || e.altKey || e.metaKey;
 						if (!isModifierKey && isCharacterKey) {
-							m.handleTypeaheadSearch(e.key, getMenuItems(menuEl));
+							m.helpers.handleTypeaheadSearch(e.key, getMenuItems(menuEl));
 						}
 					})
 				);
@@ -245,7 +270,7 @@ export function createMenubar(props?: CreateMenubarProps) {
 			},
 		});
 
-		const trigger = builder(name('trigger'), {
+		const trigger = makeElement(name('trigger'), {
 			stores: [rootOpen, m.ids.menu, m.ids.trigger],
 			returned: ([$rootOpen, $menuId, $triggerId]) => {
 				return {
@@ -261,7 +286,7 @@ export function createMenubar(props?: CreateMenubarProps) {
 			action: (node: HTMLElement): MeltActionReturn<MenubarEvents['trigger']> => {
 				applyAttrsIfDisabled(node);
 
-				const menubarEl = document.getElementById(get(ids.menubar));
+				const menubarEl = document.getElementById(ids.menubar.get());
 				if (!menubarEl) return {};
 
 				const menubarTriggers = Array.from(
@@ -288,7 +313,7 @@ export function createMenubar(props?: CreateMenubarProps) {
 
 				const unsub = executeCallbacks(
 					addMeltEventListener(node, 'click', (e) => {
-						const $rootOpen = get(rootOpen);
+						const $rootOpen = rootOpen.get();
 						const triggerEl = e.currentTarget;
 						if (!isHTMLElement(triggerEl)) return;
 
@@ -319,11 +344,11 @@ export function createMenubar(props?: CreateMenubarProps) {
 						const triggerEl = e.currentTarget;
 						if (!isHTMLElement(triggerEl)) return;
 
-						const $activeMenu = get(activeMenu);
-						const $rootOpen = get(rootOpen);
+						const $activeMenu = activeMenu.get();
+						const $rootOpen = rootOpen.get();
 						if ($activeMenu && !$rootOpen) {
 							rootOpen.set(true);
-							activeMenu.set(get(m.ids.menu));
+							activeMenu.set(m.ids.menu.get());
 							rootActiveTrigger.set(triggerEl);
 						}
 					})
@@ -345,7 +370,7 @@ export function createMenubar(props?: CreateMenubarProps) {
 					nextFocusable.set(getNextFocusable(triggerEl));
 					prevFocusable.set(getPreviousFocusable(triggerEl));
 					rootActiveTrigger.set(triggerEl);
-					activeMenu.set(get(m.ids.menu));
+					activeMenu.set(m.ids.menu.get());
 				} else {
 					rootActiveTrigger.set(null);
 				}
@@ -356,10 +381,10 @@ export function createMenubar(props?: CreateMenubarProps) {
 
 		effect([activeMenu], ([$activeMenu]) => {
 			if (!isBrowser) return;
-			if ($activeMenu === get(m.ids.menu)) {
-				if (get(rootOpen)) return;
+			if ($activeMenu === m.ids.menu.get()) {
+				if (rootOpen.get()) return;
 
-				const triggerEl = document.getElementById(get(m.ids.trigger));
+				const triggerEl = document.getElementById(m.ids.trigger.get());
 				if (!triggerEl) return;
 				rootActiveTrigger.set(triggerEl);
 				addHighlight(triggerEl);
@@ -367,10 +392,10 @@ export function createMenubar(props?: CreateMenubarProps) {
 				return;
 			}
 
-			if ($activeMenu !== get(m.ids.menu)) {
+			if ($activeMenu !== m.ids.menu.get()) {
 				if (!isBrowser) return;
-				if (get(rootOpen)) {
-					const triggerEl = document.getElementById(get(m.ids.trigger));
+				if (rootOpen.get()) {
+					const triggerEl = document.getElementById(m.ids.trigger.get());
 					if (!triggerEl) return;
 					rootActiveTrigger.set(null);
 					rootOpen.set(false);
@@ -382,9 +407,9 @@ export function createMenubar(props?: CreateMenubarProps) {
 
 		effect([rootOpen], ([$rootOpen]) => {
 			if (!isBrowser) return;
-			const triggerEl = document.getElementById(get(m.ids.trigger));
+			const triggerEl = document.getElementById(m.ids.trigger.get());
 			if (!triggerEl) return;
-			if (!$rootOpen && get(activeMenu) === get(m.ids.menu)) {
+			if (!$rootOpen && activeMenu.get() === m.ids.menu.get()) {
 				rootActiveTrigger.set(null);
 				activeMenu.set('');
 				removeHighlight(triggerEl);
@@ -398,8 +423,8 @@ export function createMenubar(props?: CreateMenubarProps) {
 
 		safeOnMount(() => {
 			if (!isBrowser) return;
-			const triggerEl = document.getElementById(get(m.ids.trigger));
-			if (isHTMLElement(triggerEl) && get(rootOpen)) {
+			const triggerEl = document.getElementById(m.ids.trigger.get());
+			if (isHTMLElement(triggerEl) && rootOpen.get()) {
 				rootActiveTrigger.set(triggerEl);
 			}
 		});
@@ -407,22 +432,12 @@ export function createMenubar(props?: CreateMenubarProps) {
 		return {
 			ids: m.ids,
 			elements: {
+				...m.elements,
 				menu,
 				trigger,
-				item: m.item,
-				arrow: m.arrow,
-				separator: m.separator,
-				group: m.group,
-				groupLabel: m.groupLabel,
 			},
-			builders: {
-				createCheckboxItem: m.createCheckboxItem,
-				createSubmenu: m.createSubmenu,
-				createMenuRadioGroup: m.createMenuRadioGroup,
-			},
-			states: {
-				open: rootOpen,
-			},
+			builders: m.builders,
+			states: m.states,
 			options,
 		};
 	};
@@ -457,7 +472,7 @@ export function createMenubar(props?: CreateMenubarProps) {
 		if (isPrevKey && isKeyDownInsideSubMenu) return;
 
 		// Index of the currently focused item in the candidate nodes array
-		const menubarEl = document.getElementById(get(ids.menubar));
+		const menubarEl = document.getElementById(ids.menubar.get());
 		if (!isHTMLElement(menubarEl)) return;
 		const triggers = getMenuTriggers(menubarEl);
 		const currTriggerId = currentTarget.getAttribute('aria-labelledby');
@@ -527,7 +542,7 @@ export function createMenubar(props?: CreateMenubarProps) {
 
 		// Calculate the index of the next menu item
 		let nextIndex: number;
-		const $loop = get(loop);
+		const $loop = loop.get();
 		switch (e.key) {
 			case kbd.ARROW_RIGHT:
 				nextIndex =
@@ -556,7 +571,7 @@ export function createMenubar(props?: CreateMenubarProps) {
 	safeOnMount(() => {
 		if (!isBrowser) return;
 
-		const menubarEl = document.getElementById(get(ids.menubar));
+		const menubarEl = document.getElementById(ids.menubar.get());
 		if (!menubarEl) return;
 		const unsubEvents = executeCallbacks(
 			addMeltEventListener(menubarEl, 'keydown', (e) => {
@@ -572,12 +587,6 @@ export function createMenubar(props?: CreateMenubarProps) {
 
 				if (MENUBAR_NAV_KEYS.includes(e.key)) {
 					handleMenubarNavigation(e);
-				}
-			}),
-			addEventListener(document, 'keydown', (e) => {
-				if (get(closeOnEscape) && e.key === kbd.ESCAPE) {
-					window.clearTimeout(get(closeTimer));
-					activeMenu.set('');
 				}
 			})
 		);
