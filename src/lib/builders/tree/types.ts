@@ -1,14 +1,21 @@
-import type { ChangeFn } from '$lib/internal/helpers';
+import type { ChangeFn } from '$lib/internal/helpers/index.js';
 import type { Writable } from 'svelte/store';
-import type { createTreeView } from './create';
+import type { createTreeView } from './create.js';
 
 export type CreateTreeViewProps = {
+	/**
+	 * Whether or not to force the tree to always be visible.
+	 *
+	 * This is useful for custom transitions and animations using conditional blocks.
+	 *
+	 * @default false
+	 */
 	forceVisible?: boolean;
 
 	/**
 	 * Which tree items are expanded by default.
 	 *
-	 * @default false
+	 * @default []
 	 */
 	defaultExpanded?: string[];
 

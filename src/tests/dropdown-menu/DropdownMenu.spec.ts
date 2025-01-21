@@ -1,7 +1,7 @@
-import type { CreateDropdownMenuProps } from '$lib';
+import type { CreateDropdownMenuProps } from '$lib/index.js';
 import { sleep } from '$lib/internal/helpers/sleep.js';
 import { act, render, waitFor } from '@testing-library/svelte';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { describe, vi } from 'vitest';
 import { testKbd as kbd } from '../utils.js';
@@ -203,9 +203,9 @@ describe('Dropdown Menu (Default)', () => {
 		expect(closeFocus).toHaveFocus();
 	});
 
-	test('respects `closeOnEscape` prop', async () => {
+	test('respects `escapeBehavior` prop', async () => {
 		const { user, trigger, getByTestId } = setup({
-			closeOnEscape: false,
+			escapeBehavior: 'ignore',
 		});
 		const menu = getByTestId('menu');
 		await user.click(trigger);
@@ -361,7 +361,7 @@ describe('Dropdown Menu (forceVisible)', () => {
 		expect(getByTestId('checkboxItem1')).toHaveFocus();
 	});
 
-	test.todo('Doesnt focus disabled menu items', async () => {
+	test.skip('Doesnt focus disabled menu items', async () => {
 		const { queryByTestId, user, trigger, getByTestId } = setupForceVis();
 
 		expect(queryByTestId('menu')).toBeNull();

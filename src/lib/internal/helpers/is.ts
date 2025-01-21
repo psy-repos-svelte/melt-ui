@@ -6,6 +6,14 @@ export const isFunction = (v: unknown): v is Function => typeof v === 'function'
 
 export const isLetter = (key: string) => /^[a-z]$/i.test(key);
 
+export function isDocument(element: unknown): element is Document {
+	return element instanceof Document;
+}
+
+export function isShadowRoot(element: unknown): element is ShadowRoot {
+	return element instanceof ShadowRoot;
+}
+
 export function isElement(element: unknown): element is Element {
 	return element instanceof Element;
 }
@@ -73,5 +81,19 @@ export function isReadable(value: unknown): value is Readable<unknown> {
 }
 
 export function isWritable(value: unknown): value is Writable<unknown> {
-	return isReadable(value) && 'subscribe' in value;
+	return isReadable(value) && 'set' in value;
+}
+
+export function isAttachedToDocument(element: unknown): boolean {
+	if (!isHTMLElement(element)) return false;
+
+	const rootNode = element.getRootNode();
+
+	if (rootNode === document) return true;
+
+	if (isShadowRoot(rootNode)) {
+		return rootNode.ownerDocument === document;
+	}
+
+	return false;
 }

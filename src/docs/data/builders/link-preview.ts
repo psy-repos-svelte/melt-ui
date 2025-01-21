@@ -1,6 +1,6 @@
 import { ATTRS, PROPS } from '$docs/constants.js';
-import { builderSchema, elementSchema } from '$docs/utils/index.js';
-import { linkPreviewIdParts } from '$lib';
+import { builderSchema, elementSchema, floatingSideAndAlignDataAttrs } from '$docs/utils/index.js';
+import { linkPreviewIdParts } from '$lib/index.js';
 import { linkPreviewEvents } from '$lib/builders/link-preview/events.js';
 import type { BuilderData } from './index.js';
 import { getMenuArrowSchema } from './menu.js';
@@ -24,7 +24,8 @@ const OPTION_PROPS = [
 	PROPS.POSITIONING({ default: "placement: 'bottom'" }),
 	PROPS.ARROW_SIZE,
 	PROPS.CLOSE_ON_OUTSIDE_CLICK,
-	PROPS.CLOSE_ON_ESCAPE,
+	PROPS.ESCAPE_BEHAVIOR,
+	PROPS.PREVENT_TEXT_SELECTION_OVERFLOW,
 	PROPS.FORCE_VISIBLE,
 	PROPS.PORTAL,
 ];
@@ -77,6 +78,7 @@ const trigger = elementSchema('trigger', {
 const content = elementSchema('content', {
 	description: 'The content displayed in the linkpreview',
 	dataAttributes: [
+		...floatingSideAndAlignDataAttrs,
 		{
 			name: 'data-state',
 			value: ATTRS.OPEN_CLOSED,

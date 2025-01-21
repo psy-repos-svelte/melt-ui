@@ -1,8 +1,14 @@
-import type { FloatingConfig } from '$lib/internal/actions/index.js';
+import type {
+	EscapeBehaviorType,
+	FloatingConfig,
+	InteractOutsideEvent,
+	PortalConfig,
+} from '$lib/internal/actions/index.js';
 import type { TextDirection } from '$lib/internal/types.js';
 import type { ChangeFn, FocusProp, IdObj } from '$lib/internal/helpers/index.js';
 import type { Writable } from 'svelte/store';
 import type { _MenuIdParts, createMenuBuilder } from './create.js';
+import type { WithGet } from '$lib/internal/helpers/withGet.js';
 
 export type _CreateMenuProps = {
 	/**
@@ -33,11 +39,15 @@ export type _CreateMenuProps = {
 	preventScroll?: boolean;
 
 	/**
-	 * Whether or not to close the menu when the escape key is pressed.
+	 * Escape behavior type.
+	 * `close`: Closes the element immediately.
+	 * `defer-otherwise-close`: Delegates the action to the parent element. If no parent is found, it closes the element.
+	 * `defer-otherwise-ignore`: Delegates the action to the parent element. If no parent is found, nothing is done.
+	 * `ignore`: Prevents the element from closing and also blocks the parent element from closing in response to the Escape key.
 	 *
-	 * @default true
+	 * @defaultValue `close`
 	 */
-	closeOnEscape?: boolean;
+	escapeBehavior?: EscapeBehaviorType;
 
 	/**
 	 * Whether or not to close the menu when an internal item is clicked.
@@ -51,7 +61,7 @@ export type _CreateMenuProps = {
 	 *
 	 * @default 'body'
 	 */
-	portal?: HTMLElement | string | null;
+	portal?: PortalConfig | null;
 
 	/**
 	 * Whether or not to close the menu when a click occurs outside of it.
@@ -66,7 +76,14 @@ export type _CreateMenuProps = {
 	 * If `event.preventDefault()` is called within the function,
 	 * the dialog will not close when the user clicks outside of it.
 	 */
-	onOutsideClick?: (event: PointerEvent) => void;
+	onOutsideClick?: (event: InteractOutsideEvent) => void;
+
+	/**
+	 * Whether should prevent text selection overflowing the element when the element is the top layer.
+	 *
+	 * @defaultValue `true`
+	 */
+	preventTextSelectionOverflow?: boolean;
 
 	/**
 	 * Whether or not to loop the menu navigation.
@@ -173,27 +190,28 @@ export type _Menu = {
 };
 
 export type _MenuBuilderOptions = {
-	rootOpen: Writable<boolean>;
-	rootActiveTrigger: Writable<HTMLElement | null>;
+	rootOpen: WithGet<Writable<boolean>>;
+	rootActiveTrigger: WithGet<Writable<HTMLElement | null>>;
 	rootOptions: {
-		positioning: Writable<FloatingConfig>;
-		arrowSize: Writable<number | undefined>;
-		preventScroll: Writable<boolean | undefined>;
-		loop: Writable<boolean | undefined>;
-		dir: Writable<TextDirection>;
-		closeOnEscape: Writable<boolean>;
-		closeOnOutsideClick: Writable<boolean>;
-		portal: Writable<string | HTMLElement | undefined | null>;
-		forceVisible: Writable<boolean>;
-		typeahead: Writable<boolean>;
-		closeFocus: Writable<FocusProp | undefined>;
-		disableFocusFirstItem: Writable<boolean>;
-		closeOnItemClick: Writable<boolean>;
-		onOutsideClick: Writable<((event: PointerEvent) => void) | undefined>;
+		positioning: WithGet<Writable<FloatingConfig>>;
+		arrowSize: WithGet<Writable<number | undefined>>;
+		preventScroll: WithGet<Writable<boolean | undefined>>;
+		loop: WithGet<Writable<boolean | undefined>>;
+		dir: WithGet<Writable<TextDirection>>;
+		escapeBehavior: WithGet<Writable<EscapeBehaviorType>>;
+		closeOnOutsideClick: WithGet<Writable<boolean>>;
+		preventTextSelectionOverflow: WithGet<Writable<boolean>>;
+		portal: WithGet<Writable<string | HTMLElement | undefined | null>>;
+		forceVisible: WithGet<Writable<boolean>>;
+		typeahead: WithGet<Writable<boolean>>;
+		closeFocus: WithGet<Writable<FocusProp | undefined>>;
+		disableFocusFirstItem: WithGet<Writable<boolean>>;
+		closeOnItemClick: WithGet<Writable<boolean>>;
+		onOutsideClick: WithGet<Writable<((event: InteractOutsideEvent) => void) | undefined>>;
 	};
 
-	nextFocusable: Writable<HTMLElement | null>;
-	prevFocusable: Writable<HTMLElement | null>;
+	nextFocusable: WithGet<Writable<HTMLElement | null>>;
+	prevFocusable: WithGet<Writable<HTMLElement | null>>;
 	selector: string;
 	/**
 	 * When you want to handle the scroll removal in the specific menu builder,
@@ -209,6 +227,7 @@ export type _MenuParts =
 	| 'arrow'
 	| 'checkbox-item'
 	| 'item'
+	| 'overlay'
 	| 'radio-group'
 	| 'radio-item'
 	| 'submenu'

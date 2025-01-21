@@ -1,14 +1,13 @@
 import {
 	addMeltEventListener,
-	builder,
 	createElHelpers,
 	disabledAttr,
 	executeCallbacks,
-	hiddenInputAttrs,
 	isBrowser,
 	isHTMLElement,
 	isHTMLInputElement,
 	last,
+	makeElement,
 	next,
 	omit,
 	overridable,
@@ -17,12 +16,14 @@ import {
 } from '$lib/internal/helpers/index.js';
 import type { Defaults, MeltActionReturn } from '$lib/internal/types.js';
 import { tick } from 'svelte';
-import { derived, get, readonly, writable } from 'svelte/store';
+import { derived, readonly, writable } from 'svelte/store';
+import { generateIds } from '../../internal/helpers/id.js';
+import { createHiddenInput } from '../hidden-input/create.js';
 import type { PinInputEvents } from './events.js';
 import type { CreatePinInputProps } from './types.js';
-import { generateIds } from '../../internal/helpers/id';
 
-const { name, selector } = createElHelpers<'input' | 'hidden-input'>('pin-input');
+const prefix = 'pin-input';
+const { name, selector } = createElHelpers<'input' | 'hidden-input'>(prefix);
 
 const getInputs = (node: HTMLInputElement) => {
 	const rootEl = node.closest(selector());
@@ -61,13 +62,13 @@ export function createPinInput(props?: CreatePinInputProps) {
 
 	const ids = toWritableStores({ ...generateIds(pinInputIdParts), ...withDefaults.ids });
 
-	const root = builder(name(), {
+	const root = makeElement(name(), {
 		stores: [value, ids.root],
 		returned: ([$value, $rootId]) => {
 			return {
 				id: $rootId,
 				'data-complete': $value.length && $value.every((v) => v.length > 0) ? '' : undefined,
-			};
+			} as const;
 		},
 	});
 
@@ -75,14 +76,14 @@ export function createPinInput(props?: CreatePinInputProps) {
 
 	const getTotalItems = () => {
 		if (!isBrowser) return Infinity;
-		const rootEl = document.getElementById(get(ids.root));
+		const rootEl = document.getElementById(ids.root.get());
 		if (!rootEl) return Infinity;
 
 		const inputs = Array.from(rootEl.querySelectorAll(selector('input')));
 		return inputs.length;
 	};
 
-	const input = builder(name('input'), {
+	const input = makeElement(name('input'), {
 		stores: [value, placeholder, disabled, type],
 		returned: ([$value, $placeholder, $disabled, $type]) => {
 			return () => {
@@ -97,7 +98,7 @@ export function createPinInput(props?: CreatePinInputProps) {
 					disabled: disabledAttr($disabled),
 					type: $type,
 					value: currValue,
-				};
+				} as const;
 			};
 		},
 		action: (node: HTMLInputElement): MeltActionReturn<PinInputEvents['input']> => {
@@ -161,7 +162,7 @@ export function createPinInput(props?: CreatePinInputProps) {
 					if (!inputs) return;
 
 					const getInputted = (el: HTMLInputElement) => {
-						const $value = get(value);
+						const $value = value.get();
 						const prevElValue = $value[elIndex];
 						const selectionStart = el.selectionStart ?? 1;
 						if (!prevElValue) return el.value;
@@ -219,7 +220,7 @@ export function createPinInput(props?: CreatePinInputProps) {
 					});
 				}),
 				addMeltEventListener(node, 'blur', () => {
-					node.placeholder = get(placeholder);
+					node.placeholder = placeholder.get();
 				})
 			);
 
@@ -231,13 +232,11 @@ export function createPinInput(props?: CreatePinInputProps) {
 		},
 	});
 
-	const hiddenInput = builder(name('hidden-input'), {
-		stores: [valueStr, nameStore],
-		returned: ([$valueStr, $nameStore]) => ({
-			...hiddenInputAttrs,
-			value: $valueStr,
-			name: $nameStore,
-		}),
+	const hiddenInput = createHiddenInput({
+		value: valueStr,
+		disabled,
+		name: nameStore,
+		prefix,
 	});
 
 	const clear = () => {

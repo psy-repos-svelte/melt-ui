@@ -1,6 +1,11 @@
-import { ATTRS, DESCRIPTIONS, KBD, PROPS, SEE } from '$docs/constants.js';
+import { ATTRS, KBD, PROPS, SEE } from '$docs/constants.js';
 import type { KeyboardSchema } from '$docs/types.js';
-import { builderSchema, elementSchema } from '$docs/utils/index.js';
+import {
+	builderSchema,
+	elementSchema,
+	floatingSideAndAlignDataAttrs,
+	floatingSideDataAttr,
+} from '$docs/utils/index.js';
 import { listboxIdParts } from '$lib/builders/listbox/create.js';
 import { selectEvents } from '$lib/builders/select/events.js';
 import type { BuilderData } from './index.js';
@@ -14,8 +19,9 @@ const OPTION_PROPS = [
 	PROPS.ARROW_SIZE,
 	PROPS.PREVENT_SCROLL,
 	PROPS.LOOP,
-	PROPS.CLOSE_ON_ESCAPE,
+	PROPS.ESCAPE_BEHAVIOR,
 	PROPS.CLOSE_ON_OUTSIDE_CLICK,
+	PROPS.PREVENT_TEXT_SELECTION_OVERFLOW,
 	PROPS.PORTAL,
 	PROPS.FORCE_VISIBLE,
 	PROPS.POSITIONING({ default: "placement: 'bottom'" }),
@@ -57,12 +63,6 @@ const builder = builderSchema(BUILDER_NAME, {
 			see: SEE.CHANGE_FUNCTIONS,
 		},
 		...OPTION_PROPS,
-		{
-			name: 'preventScroll',
-			type: 'boolean',
-			default: 'true',
-			description: DESCRIPTIONS.PREVENT_SCROLL('select'),
-		},
 		{
 			name: 'multiple',
 			type: 'boolean',
@@ -160,6 +160,7 @@ const trigger = elementSchema('trigger', {
 const menu = elementSchema('menu', {
 	description: 'The menu element',
 	dataAttributes: [
+		...floatingSideAndAlignDataAttrs,
 		{
 			name: 'data-melt-select-menu',
 			value: ATTRS.MELT('menu'),
@@ -222,6 +223,7 @@ const label = elementSchema('label', {
 const arrow = elementSchema('arrow', {
 	description: 'The optional arrow element',
 	dataAttributes: [
+		floatingSideDataAttr,
 		{
 			name: 'data-arrow',
 			value: ATTRS.TRUE,

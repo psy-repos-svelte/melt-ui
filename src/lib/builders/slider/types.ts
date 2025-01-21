@@ -28,6 +28,11 @@ export type CreateSliderProps = {
 	onValueChange?: ChangeFn<number[]>;
 
 	/**
+	 * The callback invoked when the user has committed the value of the slider.
+	 */
+	onValueCommitted?: (value: number[]) => void;
+
+	/**
 	 * The minimum value of the slider.
 	 *
 	 * @default 0
@@ -71,6 +76,20 @@ export type CreateSliderProps = {
 	 * @default false
 	 */
 	disabled?: boolean;
+
+	/**
+	 * When `false`, disables automatically sorting the value array when moving thumbs past each other.
+	 *
+	 * @default true
+	 */
+	autoSort?: boolean;
+
+	/**
+	 * By default, MeltUI uses the `document` as the root element to find your components, if you are using a shadow-dom or want to specify you own root element you should provide it here.
+	 *
+	 * @default document
+	 */
+	rootElement?: ParentNode;
 };
 
 export type Slider = BuilderReturn<typeof createSlider>;

@@ -1,6 +1,5 @@
 import {
-	createFocusTrap,
-	useClickOutside,
+	useFocusTrap,
 	useEscapeKeydown,
 	useFloating,
 	usePortal,
@@ -13,16 +12,19 @@ import {
 } from '$lib/internal/helpers/index.js';
 import type { Action } from 'svelte/action';
 import type { PopperArgs, PopperConfig } from './types.js';
+import { useModal } from '../modal/action.js';
+import { usePreventTextSelectionOverflow } from '../prevent-text-selection-overflow/action.js';
 
 const defaultConfig = {
 	floating: {},
 	focusTrap: {},
-	clickOutside: {},
+	modal: {},
 	escapeKeydown: {},
 	portal: 'body',
+	preventTextSelectionOverflow: {},
 } satisfies PopperConfig;
 
-export const usePopper: Action<HTMLElement, PopperArgs> = (popperElement, args) => {
+export const usePopper = ((popperElement, args) => {
 	popperElement.dataset.escapee = '';
 	const { anchorElement, open, options } = args as PopperArgs;
 	if (!anchorElement || !open || !options) {
@@ -34,45 +36,39 @@ export const usePopper: Action<HTMLElement, PopperArgs> = (popperElement, args) 
 	const callbacks: Callback[] = [];
 
 	if (opts.portal !== null) {
-		const portal = usePortal(popperElement, opts.portal);
-		if (portal?.destroy) {
-			callbacks.push(portal.destroy);
-		}
+		callbacks.push(usePortal(popperElement, opts.portal).destroy);
 	}
 
 	callbacks.push(useFloating(anchorElement, popperElement, opts.floating).destroy);
 
 	if (opts.focusTrap !== null) {
-		const { useFocusTrap } = createFocusTrap({
-			immediate: true,
-			escapeDeactivates: false,
-			allowOutsideClick: true,
-			returnFocusOnDeactivate: false,
-			fallbackFocus: popperElement,
-
-			...opts.focusTrap,
-		});
-
-		const usedFocusTrap = useFocusTrap(popperElement);
-
-		if (usedFocusTrap?.destroy) {
-			callbacks.push(usedFocusTrap.destroy);
-		}
+		callbacks.push(
+			useFocusTrap(popperElement, {
+				fallbackFocus: popperElement,
+				...opts.focusTrap,
+			}).destroy
+		);
 	}
 
-	if (opts.clickOutside !== null) {
+	if (opts.modal !== null) {
 		callbacks.push(
-			useClickOutside(popperElement, {
-				enabled: open,
-				handler: (e: PointerEvent) => {
-					if (e.defaultPrevented) return;
-
-					if (isHTMLElement(anchorElement) && !anchorElement.contains(e.target as Element)) {
+			useModal(popperElement, {
+				onClose: () => {
+					if (isHTMLElement(anchorElement)) {
 						open.set(false);
 						anchorElement.focus();
 					}
 				},
-				...opts.clickOutside,
+				shouldCloseOnInteractOutside: (e) => {
+					if (e.defaultPrevented) return false;
+
+					if (isHTMLElement(anchorElement) && anchorElement.contains(e.target as Element)) {
+						return false;
+					}
+
+					return true;
+				},
+				...opts.modal,
 			}).destroy
 		);
 	}
@@ -80,13 +76,16 @@ export const usePopper: Action<HTMLElement, PopperArgs> = (popperElement, args) 
 	if (opts.escapeKeydown !== null) {
 		callbacks.push(
 			useEscapeKeydown(popperElement, {
-				enabled: open,
 				handler: () => {
 					open.set(false);
 				},
 				...opts.escapeKeydown,
 			}).destroy
 		);
+	}
+
+	if (opts.preventTextSelectionOverflow !== null) {
+		callbacks.push(usePreventTextSelectionOverflow(popperElement).destroy);
 	}
 
 	// @ts-expect-error - This works and is correct, but TS doesn't like it
@@ -97,4 +96,4 @@ export const usePopper: Action<HTMLElement, PopperArgs> = (popperElement, args) 
 			unsubscribe();
 		},
 	};
-};
+}) satisfies Action<HTMLElement, PopperArgs>;

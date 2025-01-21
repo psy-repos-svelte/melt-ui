@@ -1,4 +1,9 @@
-import type { FloatingConfig } from '$lib/internal/actions/index.js';
+import type {
+	EscapeBehaviorType,
+	FloatingConfig,
+	InteractOutsideEvent,
+	PortalConfig,
+} from '$lib/internal/actions/index.js';
 import type { ChangeFn, IdObj } from '$lib/internal/helpers/index.js';
 import type { BuilderReturn, WhenTrue } from '$lib/internal/types.js';
 import type { Writable } from 'svelte/store';
@@ -30,7 +35,7 @@ export type CreateListboxProps<
 
 	/**
 	 * The size of the arrow in pixels.
-	 * @default 8
+	 * @default undefined
 	 */
 	arrowSize?: number;
 
@@ -104,12 +109,15 @@ export type CreateListboxProps<
 	closeOnOutsideClick?: boolean;
 
 	/**
-	 * Whether or not to close the listbox menu when the user presses
-	 * the escape key.
+	 * Escape behavior type.
+	 * `close`: Closes the element immediately.
+	 * `defer-otherwise-close`: Delegates the action to the parent element. If no parent is found, it closes the element.
+	 * `defer-otherwise-ignore`: Delegates the action to the parent element. If no parent is found, nothing is done.
+	 * `ignore`: Prevents the element from closing and also blocks the parent element from closing in response to the Escape key.
 	 *
-	 * @default true
+	 * @defaultValue `close`
 	 */
-	closeOnEscape?: boolean;
+	escapeBehavior?: EscapeBehaviorType;
 
 	/**
 	 * A custom event handler for the "outside click" event, which
@@ -117,7 +125,7 @@ export type CreateListboxProps<
 	 * If `event.preventDefault()` is called within the function,
 	 * the dialog will not close when the user clicks outside of it.
 	 */
-	onOutsideClick?: (event: PointerEvent) => void;
+	onOutsideClick?: (event: InteractOutsideEvent) => void;
 
 	/**
 	 * Whether or not to prevent scrolling the page when the
@@ -128,11 +136,18 @@ export type CreateListboxProps<
 	preventScroll?: boolean;
 
 	/**
-	 * If not undefined, the listbox menu will be rendered within the provided element or selector.
+	 * Whether should prevent text selection overflowing the element when the element is the top layer.
 	 *
+	 * @defaultValue `true`
+	 */
+	preventTextSelectionOverflow?: boolean;
+
+	/**
+	 * If not undefined, the listbox menu will be rendered within the provided element or selector.
+	 * Otherwise, the `rootElement`, if provided, will be used.
 	 * @default 'body'
 	 */
-	portal?: HTMLElement | string | null;
+	portal?: PortalConfig | null;
 
 	/**
 	 * Whether the menu content should be displayed even if it is not open.
@@ -171,6 +186,13 @@ export type CreateListboxProps<
 	 * Optionally override the default ids we assign to the elements
 	 */
 	ids?: Partial<IdObj<ListboxIdParts>>;
+
+	/**
+	 * By default, MeltUI uses the `document` as the root element to find your components, if you are using a shadow-dom or want to specify you own root element you should provide it here.
+	 *
+	 * @default document
+	 */
+	rootElement?: ParentNode;
 };
 
 export type ListboxOptionProps<Value = unknown> = ListboxOption<Value> & {

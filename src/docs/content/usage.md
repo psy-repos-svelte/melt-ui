@@ -44,10 +44,10 @@ Melt's props, it's all good.
   import { createCollapsible, melt } from '@melt-ui/svelte';
   import Button from '$components/button.svelte';
 
-	const {
-		elements: { root, content, trigger },
-		states: { open }
-	} = createCollapsible()
+ const {
+  elements: { root, content, trigger },
+  states: { open }
+ } = createCollapsible()
 </script>
 
 <!-- Using Svelte Scoped Styles -->
@@ -159,10 +159,40 @@ Or you can use them in a controlled manner, where props do affect the builder's 
 To get a clearer picture of the contrast between uncontrolled and controlled behavior,
 [read more about it here](/docs/controlled).
 
+#### Builder elements as props
+
+You can also pass down builder elements as props to other components. e.g. let's say you have a
+generic `Button` component. You may want to pass down a `trigger` element from a builder to it.
+
+```svelte
+<!-- Button.svelte -->
+<script lang="ts">
+ import { type AnyMeltElement, emptyMeltElement } from '@melt-ui/svelte'
+
+ export let element: AnyMeltElement = emptyMeltElement
+</script>
+
+<button use:melt={$element}>
+ <slot />
+</button>
+
+<!-- Later, in +page.svelte -->
+<script>
+ import { createCollapsible, melt } from '@melt-ui/svelte'
+ import Button from './Button.svelte'
+
+ const {
+  elements: { trigger }
+ } = createCollapsible()
+</script>
+
+<Button element={trigger}>Toggle</Button>
+```
+
 ## Need help?
 
 If you run into any bugs, or would like to request a feature, please feel free to
 [open an issue](https://github.com/melt-ui/melt-ui/issues/new) on GitHub.
 
-You can also reach out to us on [Discord](https://discord.gg/cee8gHrznd) if you have any questions
-or just want to chat.
+You can also reach out to us on [Discord](https://melt-ui.com/discord) if you have any questions or
+just want to chat.

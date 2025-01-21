@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { cn } from '$docs/utils';
+	import { cn } from '$docs/utils/index.js';
 	import { createPopover, melt } from '$lib/index.js';
-	import { Plus } from 'lucide-svelte';
+	import { Plus } from '$icons/index.js';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -16,7 +16,7 @@
 		forceVisible: true,
 		defaultOpen: true,
 		closeOnOutsideClick: false,
-		closeOnEscape: false,
+		escapeBehavior: 'ignore',
 		disableFocusTrap: true,
 	});
 
@@ -25,8 +25,13 @@
 
 	export let contentClass = '';
 
+	let popoverButton: HTMLButtonElement;
+
 	onMount(() => {
 		open.set(true);
+		setTimeout(() => {
+			popoverButton.blur();
+		}, 100);
 	});
 </script>
 
@@ -40,7 +45,7 @@
 	use:melt={$trigger}
 	aria-label="Add"
 >
-	<Plus class="square-4" aria-label="plus" />
+	<Plus class="size-4" aria-label="plus" />
 </button>
 
 {#if $open}

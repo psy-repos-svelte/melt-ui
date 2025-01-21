@@ -1,6 +1,6 @@
 import {
 	addMeltEventListener,
-	builder,
+	makeElement,
 	createElHelpers,
 	derivedVisible,
 	effect,
@@ -9,7 +9,6 @@ import {
 	handleFocus,
 	isBrowser,
 	isElement,
-	isHTMLElement,
 	kbd,
 	noop,
 	omit,
@@ -17,16 +16,17 @@ import {
 	removeScroll,
 	styleToString,
 	toWritableStores,
+	portalAttr,
+	generateIds,
+	withGet,
 } from '$lib/internal/helpers/index.js';
 
-import { usePopper } from '$lib/internal/actions/index.js';
-import { safeOnMount } from '$lib/internal/helpers/lifecycle.js';
+import { usePopper, usePortal, type InteractOutsideEvent } from '$lib/internal/actions/index.js';
 import type { Defaults, MeltActionReturn } from '$lib/internal/types.js';
-import { tick } from 'svelte';
-import { get, writable } from 'svelte/store';
-import { generateIds } from '../../internal/helpers/id';
+import { writable } from 'svelte/store';
 import type { PopoverEvents } from './events.js';
 import type { CreatePopoverProps } from './types.js';
+import { tick } from 'svelte';
 
 const defaults = {
 	positioning: {
@@ -35,18 +35,19 @@ const defaults = {
 	arrowSize: 8,
 	defaultOpen: false,
 	disableFocusTrap: false,
-	closeOnEscape: true,
+	escapeBehavior: 'close',
 	preventScroll: false,
 	onOpenChange: undefined,
 	closeOnOutsideClick: true,
-	portal: undefined,
+	portal: 'body',
 	forceVisible: false,
 	openFocus: undefined,
 	closeFocus: undefined,
 	onOutsideClick: undefined,
+	preventTextSelectionOverflow: true,
 } satisfies Defaults<CreatePopoverProps>;
 
-type PopoverParts = 'trigger' | 'content' | 'arrow' | 'close';
+type PopoverParts = 'trigger' | 'content' | 'arrow' | 'close' | 'overlay';
 const { name } = createElHelpers<PopoverParts>('popover');
 
 export const popoverIdParts = ['trigger', 'content'] as const;
@@ -61,104 +62,76 @@ export function createPopover(args?: CreatePopoverProps) {
 		arrowSize,
 		disableFocusTrap,
 		preventScroll,
-		closeOnEscape,
+		escapeBehavior,
 		closeOnOutsideClick,
 		portal,
 		forceVisible,
 		openFocus,
 		closeFocus,
 		onOutsideClick,
+		preventTextSelectionOverflow,
 	} = options;
 
 	const openWritable = withDefaults.open ?? writable(withDefaults.defaultOpen);
 	const open = overridable(openWritable, withDefaults?.onOpenChange);
 
-	const activeTrigger = writable<HTMLElement | null>(null);
+	const activeTrigger = withGet.writable<HTMLElement | null>(null);
 
 	const ids = toWritableStores({ ...generateIds(popoverIdParts), ...withDefaults.ids });
 
-	safeOnMount(() => {
-		activeTrigger.set(document.getElementById(get(ids.trigger)));
-	});
-
 	function handleClose() {
 		open.set(false);
-		const triggerEl = document.getElementById(get(ids.trigger));
-		handleFocus({ prop: get(closeFocus), defaultEl: triggerEl });
 	}
 
 	const isVisible = derivedVisible({ open, activeTrigger, forceVisible });
 
-	const content = builder(name('content'), {
-		stores: [isVisible, portal, ids.content],
-		returned: ([$isVisible, $portal, $contentId]) => {
+	const content = makeElement(name('content'), {
+		stores: [isVisible, open, activeTrigger, portal, ids.content],
+		returned: ([$isVisible, $open, $activeTrigger, $portal, $contentId]) => {
 			return {
 				hidden: $isVisible && isBrowser ? undefined : true,
 				tabindex: -1,
-				style: styleToString({
-					display: $isVisible ? undefined : 'none',
-				}),
+				style: $isVisible ? undefined : styleToString({ display: 'none' }),
 				id: $contentId,
-				'data-state': $isVisible ? 'open' : 'closed',
-				'data-portal': $portal ? '' : undefined,
-			};
+				'data-state': $open && $activeTrigger ? 'open' : 'closed',
+				'data-portal': portalAttr($portal),
+			} as const;
 		},
 		action: (node: HTMLElement) => {
 			let unsubPopper = noop;
 
 			const unsubDerived = effect(
-				[
-					isVisible,
-					activeTrigger,
-					positioning,
-					disableFocusTrap,
-					closeOnEscape,
-					closeOnOutsideClick,
-					portal,
-				],
+				[isVisible, activeTrigger, positioning, disableFocusTrap, closeOnOutsideClick, portal],
 				([
 					$isVisible,
 					$activeTrigger,
 					$positioning,
 					$disableFocusTrap,
-					$closeOnEscape,
 					$closeOnOutsideClick,
 					$portal,
 				]) => {
 					unsubPopper();
 					if (!$isVisible || !$activeTrigger) return;
 
-					const popper = usePopper(node, {
-						anchorElement: $activeTrigger,
-						open,
-						options: {
-							floating: $positioning,
-							focusTrap: $disableFocusTrap
-								? null
-								: {
-										returnFocusOnDeactivate: false,
-										clickOutsideDeactivates: true,
-										escapeDeactivates: true,
-								  },
-							clickOutside: $closeOnOutsideClick
-								? {
-										handler: handleClickOutside,
-								  }
-								: null,
-							escapeKeydown: $closeOnEscape
-								? {
-										handler: () => {
-											handleClose();
-										},
-								  }
-								: null,
-							portal: getPortalDestination(node, $portal),
-						},
+					tick().then(() => {
+						unsubPopper();
+						unsubPopper = usePopper(node, {
+							anchorElement: $activeTrigger,
+							open,
+							options: {
+								floating: $positioning,
+								focusTrap: $disableFocusTrap ? null : undefined,
+								modal: {
+									shouldCloseOnInteractOutside: shouldCloseOnInteractOutside,
+									onClose: handleClose,
+									closeOnInteractOutside: $closeOnOutsideClick,
+								},
+								escapeKeydown: { behaviorType: escapeBehavior },
+								portal: getPortalDestination(node, $portal),
+								preventTextSelectionOverflow: { enabled: preventTextSelectionOverflow },
+							},
+						}).destroy;
 					});
-
-					if (popper && popper.destroy) {
-						unsubPopper = popper.destroy;
-					}
 				}
 			);
 
@@ -171,70 +144,101 @@ export function createPopover(args?: CreatePopoverProps) {
 		},
 	});
 
-	function toggleOpen(triggerEl?: HTMLElement) {
-		open.update((prev) => {
-			return !prev;
-		});
-		if (triggerEl) {
-			activeTrigger.set(triggerEl);
-		}
+	async function toggleOpen() {
+		open.update((prev) => !prev);
 	}
-
-	function handleClickOutside(e: PointerEvent) {
-		get(onOutsideClick)?.(e);
-		if (e.defaultPrevented) return;
+	function shouldCloseOnInteractOutside(e: InteractOutsideEvent) {
+		onOutsideClick.get()?.(e);
+		if (e.defaultPrevented) return false;
 		const target = e.target;
-		const triggerEl = document.getElementById(get(ids.trigger));
+		const triggerEl = document.getElementById(ids.trigger.get());
 
 		if (triggerEl && isElement(target)) {
-			if (target === triggerEl || triggerEl.contains(target)) return;
+			if (target === triggerEl || triggerEl.contains(target)) return false;
 		}
-		handleClose();
+		return true;
 	}
 
-	const trigger = builder(name('trigger'), {
-		stores: [open, ids.content, ids.trigger],
-		returned: ([$open, $contentId, $triggerId]) => {
+	const trigger = makeElement(name('trigger'), {
+		stores: [isVisible, ids.content, ids.trigger],
+		returned: ([$isVisible, $contentId, $triggerId]) => {
 			return {
 				role: 'button',
 				'aria-haspopup': 'dialog',
-				'aria-expanded': $open,
-				'data-state': $open ? 'open' : 'closed',
+				'aria-expanded': $isVisible ? 'true' : 'false',
+				'data-state': stateAttr($isVisible),
 				'aria-controls': $contentId,
 				id: $triggerId,
 			} as const;
 		},
 		action: (node: HTMLElement): MeltActionReturn<PopoverEvents['trigger']> => {
+			activeTrigger.set(node);
 			const unsub = executeCallbacks(
-				addMeltEventListener(node, 'click', () => {
-					toggleOpen(node);
-				}),
+				addMeltEventListener(node, 'click', toggleOpen),
 				addMeltEventListener(node, 'keydown', (e) => {
 					if (e.key !== kbd.ENTER && e.key !== kbd.SPACE) return;
 					e.preventDefault();
-					toggleOpen(node);
+					toggleOpen();
 				})
 			);
 
 			return {
-				destroy: unsub,
+				destroy() {
+					activeTrigger.set(null);
+					unsub();
+				},
 			};
 		},
 	});
 
-	const arrow = builder(name('arrow'), {
-		stores: arrowSize,
-		returned: ($arrowSize) => ({
-			'data-arrow': true,
-			style: styleToString({
-				position: 'absolute',
-				width: `var(--arrow-size, ${$arrowSize}px)`,
-				height: `var(--arrow-size, ${$arrowSize}px)`,
-			}),
-		}),
+	const overlay = makeElement(name('overlay'), {
+		stores: [isVisible],
+		returned: ([$isVisible]) => {
+			return {
+				hidden: $isVisible ? undefined : true,
+				tabindex: -1,
+				style: styleToString({
+					display: $isVisible ? undefined : 'none',
+				}),
+				'aria-hidden': 'true',
+				'data-state': stateAttr($isVisible),
+			} as const;
+		},
+		action: (node: HTMLElement) => {
+			let unsubDerived = noop;
+			let unsubPortal = noop;
+
+			unsubDerived = effect([portal], ([$portal]) => {
+				unsubPortal();
+				if ($portal === null) return;
+				const portalDestination = getPortalDestination(node, $portal);
+				if (portalDestination === null) return;
+				unsubPortal = usePortal(node, portalDestination).destroy;
+			});
+
+			return {
+				destroy() {
+					unsubDerived();
+					unsubPortal();
+				},
+			};
+		},
 	});
 
-	const close = builder(name('close'), {
+	const arrow = makeElement(name('arrow'), {
+		stores: arrowSize,
+		returned: ($arrowSize) =>
+			({
+				'data-arrow': true,
+				style: styleToString({
+					position: 'absolute',
+					width: `var(--arrow-size, ${$arrowSize}px)`,
+					height: `var(--arrow-size, ${$arrowSize}px)`,
+				}),
+			} as const),
+	});
+
+	const close = makeElement(name('close'), {
 		returned: () =>
 			({
 				type: 'button',
@@ -260,31 +264,29 @@ export function createPopover(args?: CreatePopoverProps) {
 	});
 
 	effect([open, activeTrigger, preventScroll], ([$open, $activeTrigger, $preventScroll]) => {
-		if (!isBrowser) return;
+		if (!isBrowser || !$open) return;
 
 		const unsubs: Array<() => void> = [];
 
-		if ($open) {
-			if (!$activeTrigger) {
-				tick().then(() => {
-					const triggerEl = document.getElementById(get(ids.trigger));
-					if (!isHTMLElement(triggerEl)) return;
-					activeTrigger.set(triggerEl);
-				});
-			}
-
-			if ($preventScroll) {
-				unsubs.push(removeScroll());
-			}
-
-			const triggerEl = $activeTrigger ?? document.getElementById(get(ids.trigger));
-			handleFocus({ prop: get(openFocus), defaultEl: triggerEl });
+		if ($preventScroll) {
+			unsubs.push(removeScroll());
 		}
+		handleFocus({ prop: openFocus.get(), defaultEl: $activeTrigger });
 
 		return () => {
 			unsubs.forEach((unsub) => unsub());
 		};
 	});
+
+	effect(
+		open,
+		($open) => {
+			if (!isBrowser || $open) return;
+			const triggerEl = document.getElementById(ids.trigger.get());
+			handleFocus({ prop: closeFocus.get(), defaultEl: triggerEl });
+		},
+		{ skipFirstRun: true }
+	);
 
 	return {
 		ids,
@@ -293,10 +295,15 @@ export function createPopover(args?: CreatePopoverProps) {
 			content,
 			arrow,
 			close,
+			overlay,
 		},
 		states: {
 			open,
 		},
 		options,
 	};
+}
+
+function stateAttr(open: boolean) {
+	return open ? 'open' : 'closed';
 }

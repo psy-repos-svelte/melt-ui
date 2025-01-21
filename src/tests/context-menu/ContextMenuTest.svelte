@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { createContextMenu, melt, type CreateContextMenuProps } from '$lib/index.js';
 	import { writable } from 'svelte/store';
-	import { ChevronRight } from 'lucide-svelte';
+	import { ChevronRight } from '$icons/index.js';
 	import { fade } from 'svelte/transition';
-	import { removeUndefined } from '../utils';
+	import { removeUndefined } from '../utils.js';
 
 	const settingsSync = writable(true);
 	const hideMeltUI = writable(false);
@@ -12,7 +12,7 @@
 
 	export let loop = false;
 	export let closeFocus: CreateContextMenuProps['closeFocus'] = undefined;
-	export let closeOnEscape: CreateContextMenuProps['closeOnEscape'] = true;
+	export let escapeBehavior: CreateContextMenuProps['escapeBehavior'] = 'close';
 	export let closeOnOutsideClick: CreateContextMenuProps['closeOnOutsideClick'] = true;
 	export let submenuIds: CreateContextMenuProps['ids'] = undefined;
 
@@ -23,7 +23,7 @@
 	} = createContextMenu({
 		loop,
 		closeFocus,
-		closeOnEscape,
+		escapeBehavior,
 		closeOnOutsideClick,
 		...$$restProps,
 		forceVisible: true,

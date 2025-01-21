@@ -1,7 +1,12 @@
 import { ATTRS, KBD, PROPS } from '$docs/constants.js';
 import type { KeyboardSchema } from '$docs/types.js';
-import { builderSchema, elementSchema } from '$docs/utils/index.js';
-import { popoverIdParts } from '$lib';
+import {
+	builderSchema,
+	elementSchema,
+	floatingSideAndAlignDataAttrs,
+	floatingSideDataAttr,
+} from '$docs/utils/index.js';
+import { popoverIdParts } from '$lib/index.js';
 import { popoverEvents } from '$lib/builders/popover/events.js';
 import type { BuilderData } from './index.js';
 
@@ -17,9 +22,10 @@ const OPTION_PROPS = [
 		description: 'Whether to disable the focus trap.',
 	},
 	PROPS.ARROW_SIZE,
-	PROPS.CLOSE_ON_ESCAPE,
+	PROPS.ESCAPE_BEHAVIOR,
 	PROPS.CLOSE_ON_OUTSIDE_CLICK,
 	PROPS.PREVENT_SCROLL,
+	PROPS.PREVENT_TEXT_SELECTION_OVERFLOW,
 	PROPS.PORTAL,
 	PROPS.FORCE_VISIBLE,
 	PROPS.OPEN_FOCUS,
@@ -40,6 +46,10 @@ const builder = builderSchema(BUILDER_NAME, {
 		{
 			name: 'content',
 			description: 'The builder store used to create the popover content.',
+		},
+		{
+			name: 'overlay',
+			description: 'The builder store used to create the popover overlay.',
 		},
 		{
 			name: 'close',
@@ -78,9 +88,29 @@ const trigger = elementSchema('trigger', {
 const content = elementSchema('content', {
 	description: 'The popover content.',
 	dataAttributes: [
+		...floatingSideAndAlignDataAttrs,
+		{
+			name: 'data-state',
+			value: ATTRS.OPEN_CLOSED,
+		},
 		{
 			name: 'data-melt-popover-content',
 			value: ATTRS.MELT('content'),
+		},
+	],
+});
+
+const overlay = elementSchema('overlay', {
+	description:
+		'The optional popover overlay element, which can be used to give the popover modal-like behavior where the user cannot interact with the rest of the page while the popover is open.',
+	dataAttributes: [
+		{
+			name: 'data-state',
+			value: ATTRS.OPEN_CLOSED,
+		},
+		{
+			name: 'data-melt-popover-overlay',
+			value: ATTRS.MELT('overlay'),
 		},
 	],
 });
@@ -89,6 +119,7 @@ const arrow = elementSchema('arrow', {
 	title: 'arrow',
 	description: 'The optional arrow element.',
 	dataAttributes: [
+		floatingSideDataAttr,
 		{
 			name: 'data-arrow',
 			value: ATTRS.TRUE,
@@ -137,7 +168,7 @@ const keyboard: KeyboardSchema = [
 	},
 ];
 
-const schemas = [builder, trigger, content, close, arrow];
+const schemas = [builder, trigger, content, overlay, close, arrow];
 
 const features = [
 	'Full keyboard navigation',

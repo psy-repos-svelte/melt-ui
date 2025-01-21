@@ -1,8 +1,12 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
+import { pagefind } from 'vite-plugin-pagefind';
 
 export default defineConfig({
-	plugins: [sveltekit()],
+	plugins: [
+		sveltekit(),
+		pagefind({ publicDir: 'static', buildDir: 'build', buildScript: 'deploy' }),
+	],
 	test: {
 		include: ['src/**/*.spec.{js,ts}'],
 		// jest like globals
@@ -20,6 +24,7 @@ export default defineConfig({
 		deps: {
 			inline: ['clsx'],
 		},
-		retry: 3,
+		retry: 5,
+		allowOnly: !process.env.CI,
 	},
 });

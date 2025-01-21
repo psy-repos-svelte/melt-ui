@@ -1,5 +1,351 @@
 # @melt-ui/svelte
 
+## 0.86.2
+
+### Patch Changes
+
+- close context menu when another one opens (fixes [#1290](https://github.com/melt-ui/melt-ui/issues/1290)) ([`0c137be6`](https://github.com/melt-ui/melt-ui/commit/0c137be686958f083106f7a1690f81a3553c94eb))
+
+## 0.86.1
+
+### Patch Changes
+
+- fix context menu not being anchored ([`da69d429`](https://github.com/melt-ui/melt-ui/commit/da69d4290dc9e3f9c10b6b88a6aa8b77f580c735))
+
+- fix nested menus only opening once ([`7cfa1988`](https://github.com/melt-ui/melt-ui/commit/7cfa1988543087d958645847fca3b6ee6cf7e66a))
+
+## 0.86.0
+
+### Minor Changes
+
+- feat: added support to specify a root element when using listbox elem… ([#1279](https://github.com/melt-ui/melt-ui/pull/1279))
+
+## 0.85.0
+
+### Minor Changes
+
+- feat: expose active state on slider ([#1278](https://github.com/melt-ui/melt-ui/pull/1278))
+
+### Patch Changes
+
+- fix(tags-input): hidden attribute on tags ([#1265](https://github.com/melt-ui/melt-ui/pull/1265))
+
+## 0.84.0
+
+### Minor Changes
+
+- feat: add a pushState prop to createTableOfContents ([#1239](https://github.com/melt-ui/melt-ui/pull/1239))
+
+### Patch Changes
+
+- feat: added support to define own root when using slider. ([#1276](https://github.com/melt-ui/melt-ui/pull/1276))
+
+## 0.83.0
+
+### Minor Changes
+
+- feat: add rootMargin to TableOfContents builder ([#1210](https://github.com/melt-ui/melt-ui/pull/1210))
+
+## 0.82.0
+
+### Minor Changes
+
+- Added prop to createToaster() to pause all timers on hover ([#1178](https://github.com/melt-ui/melt-ui/pull/1178))
+
+- feat(tags-input): split on paste ([#1229](https://github.com/melt-ui/melt-ui/pull/1229))
+
+- add selection helpers to range calendar ([`cf20fc72`](https://github.com/melt-ui/melt-ui/commit/cf20fc72bf367da13a17daaa9807bd430ff99688))
+
+- add `name` prop to radio group builder hidden input element ([#1237](https://github.com/melt-ui/melt-ui/pull/1237))
+
+### Patch Changes
+
+- fix(Calendar): sometimes first day of next month is missing ([#1236](https://github.com/melt-ui/melt-ui/pull/1236))
+
+- fix(slider): `onValueCommitted` called if the slider had an active state ([#1218](https://github.com/melt-ui/melt-ui/pull/1218))
+
+## 0.81.0
+
+### Minor Changes
+
+- Mount each floating element into their own portal by default now that stack handling has been improved ([#1103](https://github.com/melt-ui/melt-ui/pull/1103))
+
+- Support all of Floating UI's FlipOptions at `positioning.flip` ([#1203](https://github.com/melt-ui/melt-ui/pull/1203))
+
+### Patch Changes
+
+- fix svelte peer deps ([`de0169dd`](https://github.com/melt-ui/melt-ui/commit/de0169dd840a4ea51dd0a0611b59797665095a8c))
+
+- fix undefined on portal update ([`87bce8a0`](https://github.com/melt-ui/melt-ui/commit/87bce8a0ec9d085715b8985c16158ebd3991b71a))
+
+## 0.80.0
+
+### Minor Changes
+
+- feat(slider): add `onValueCommitted` callback ([#1212](https://github.com/melt-ui/melt-ui/pull/1212))
+
+- fix: add `data-state` to select & combobox (closes #1199) ([#1200](https://github.com/melt-ui/melt-ui/pull/1200))
+
+- chore: change peer deps to support svelte 5 ([#1207](https://github.com/melt-ui/melt-ui/pull/1207))
+
+## 0.79.1
+
+### Patch Changes
+
+- Fix: checkbox hiddenInput not calling change events ([`caae3c01`](https://github.com/melt-ui/melt-ui/commit/caae3c01d4bde5c6f8331fb0e63bf7dc0f573810))
+
+## 0.79.0
+
+### Minor Changes
+
+- Add support for sibling portals (closes #1077, #1153) ([#1080](https://github.com/melt-ui/melt-ui/pull/1080))
+
+### Patch Changes
+
+- Fixed a bug where a floating element would not close on outside interaction that opens a new floating element. (closes #1167) ([#1080](https://github.com/melt-ui/melt-ui/pull/1080))
+
+## 0.78.0
+
+### Minor Changes
+
+- Fixed escape keydown behavior by using stacks to correctly handle nested floating elements ([#1142](https://github.com/melt-ui/melt-ui/pull/1142))
+
+- Changed `closeOnEscape` builder prop to `escapeBehavior` to provide even further fine-grained control over escape behavior in builders (closes #1142) ([#1142](https://github.com/melt-ui/melt-ui/pull/1142))
+
+### Patch Changes
+
+- fix: Modal elements allow others to close again (closes #1177) ([`7ebc8202`](https://github.com/melt-ui/melt-ui/commit/7ebc820268fa6e80657a930ffb0c5141b620388c))
+
+- Fixed bug where tooltip would close while the pointer is still inside trigger (closes #886) ([#1158](https://github.com/melt-ui/melt-ui/pull/1158))
+
+- fix: pagination pages when count = 0 ([`883b1598`](https://github.com/melt-ui/melt-ui/commit/883b159899919eb0838130947c4c6a03a42d8a9b))
+
+## 0.77.0
+
+### Minor Changes
+
+- Added new `preventTextSelectionOverflow` prop to builders to prevent text selection overflowing the floating element. (closes #1168) ([#1170](https://github.com/melt-ui/melt-ui/pull/1170))
+
+### Patch Changes
+
+- add `as const` return to more element builders (Date Field "segment", Menubar "menubar", Scroll Area) ([#1172](https://github.com/melt-ui/melt-ui/pull/1172))
+
+- chore: internal popover refactors ([#1055](https://github.com/melt-ui/melt-ui/pull/1055))
+
+- slider: add disable swapping option to avoid sorting of values array ([#1124](https://github.com/melt-ui/melt-ui/pull/1124))
+
+- chore: refactor menu internals ([#1056](https://github.com/melt-ui/melt-ui/pull/1056))
+
+- Refactor context menu internals ([#1054](https://github.com/melt-ui/melt-ui/pull/1054))
+
+## 0.76.3
+
+### Patch Changes
+
+- fix(link preview): Fixed bug where content shows up at top left of the page after remounting trigger (fixes [#1060](https://github.com/melt-ui/melt-ui/issues/1060)) ([#1053](https://github.com/melt-ui/melt-ui/pull/1053))
+
+- Fixed bug where focus trap would deactivate on an intercepted outside interaction (closes #1134) ([#1135](https://github.com/melt-ui/melt-ui/pull/1135))
+
+- Fixed bug where focus trap would deactivate on escape that was intercepted (closes #1132) ([#1133](https://github.com/melt-ui/melt-ui/pull/1133))
+
+- Enhanced type accuracy by implementing as const for builder props, ensuring more precise type inference. ([#1015](https://github.com/melt-ui/melt-ui/pull/1015))
+
+- fix data-state consistency to be based on `$open` and avoid overriding floating-ui styles #1041 ([#1042](https://github.com/melt-ui/melt-ui/pull/1042))
+
+- Fix link preview: reset activeTrigger on trigger unmount ([#1129](https://github.com/melt-ui/melt-ui/pull/1129))
+
+- Fixed a bug where manually closing a dialog or popover would not restore focus to the trigger (closes #1109) ([#1110](https://github.com/melt-ui/melt-ui/pull/1110))
+
+- Refactor focus trap internals ([#1136](https://github.com/melt-ui/melt-ui/pull/1136))
+
+- Fixed bug where outside interactions could not be intercepted (closes #917) ([#1114](https://github.com/melt-ui/melt-ui/pull/1114))
+
+## 0.76.2
+
+### Patch Changes
+
+- Fixed a bug on touch devices where an outside interaction leaked click events to other dom elements (closes #1115) ([#1118](https://github.com/melt-ui/melt-ui/pull/1118))
+
+## 0.76.1
+
+### Patch Changes
+
+- Fixed bug where focus trap deactivates in dialog and popover when clicking outside provided `closeOnOutsideClick: false` (closes #1084) ([#1094](https://github.com/melt-ui/melt-ui/pull/1094))
+
+- Combobox: menu no longer closes when composing (Closes: #1106) ([#1107](https://github.com/melt-ui/melt-ui/pull/1107))
+
+- Fixed bug where focus trap deactivates in dialog and popover when pressing escape provided `closeOnEscape: false` (closes #1091) ([#1095](https://github.com/melt-ui/melt-ui/pull/1095))
+
+- Fixed memory leak caused by race conditions for various components (closes #1086) ([#1087](https://github.com/melt-ui/melt-ui/pull/1087))
+
+- performance: avoid effect multiple runs ([#1089](https://github.com/melt-ui/melt-ui/pull/1089))
+
+- Listbox: correct `arrowSize` JSDoc defaultValue ([#1050](https://github.com/melt-ui/melt-ui/pull/1050))
+
+- Popover: fixed a bug that has the potential to introduce a memory leak via the overlay ([#1112](https://github.com/melt-ui/melt-ui/pull/1112))
+
+## 0.76.0
+
+### Minor Changes
+
+- fix: datepicker not syncing with calendar + add defaults from calendar to datepicker ([#1076](https://github.com/melt-ui/melt-ui/pull/1076))
+
+### Patch Changes
+
+- Fix incorrect arrow position for Tooltip, Popover, Listbox, Link Preview provided forceVisible: false (closes #1048) ([#1049](https://github.com/melt-ui/melt-ui/pull/1049))
+
+- fix: months not updating when changing options ([#1070](https://github.com/melt-ui/melt-ui/pull/1070))
+
+- Floating: `data-side` & `data-align` for floating content ([#1082](https://github.com/melt-ui/melt-ui/pull/1082))
+
+- fix: months not updating when changing options (range calendar) ([#1072](https://github.com/melt-ui/melt-ui/pull/1072))
+
+## 0.75.3
+
+### Patch Changes
+
+- fix(Tooltip, Link Preview, Menu, Popover, Listbox) fixed bug where content jumps to top left of page during external unmounting when using out transition on the content and else if block to render the content (closes #1058, #1039) ([#1059](https://github.com/melt-ui/melt-ui/pull/1059))
+
+- Portalled Elements: fixed a bug where clicking inside a nested 'portalled' element would cause the parent to close ([#1066](https://github.com/melt-ui/melt-ui/pull/1066))
+
+## 0.75.2
+
+### Patch Changes
+
+- Scroll Area: fixed bug with `type: 'hover'` scrollbars always showing on hover even if content not overflowing ([#1046](https://github.com/melt-ui/melt-ui/pull/1046))
+
+- Scroll Area: fixed bug with `scrollbarX` styles ([#1046](https://github.com/melt-ui/melt-ui/pull/1046))
+
+## 0.75.1
+
+### Patch Changes
+
+- Scroll Area: export types ([#1044](https://github.com/melt-ui/melt-ui/pull/1044))
+
+## 0.75.0
+
+### Minor Changes
+
+- Popover: add optional `overlay` element builder for simplified modal behavior (part of #1018) ([#1025](https://github.com/melt-ui/melt-ui/pull/1025))
+
+- Menus: add `overlay` element ([#1035](https://github.com/melt-ui/melt-ui/pull/1035))
+
+- New Builder: Scroll Area ([#908](https://github.com/melt-ui/melt-ui/pull/908))
+
+### Patch Changes
+
+- Range Calendar/Picker: fixed bug preventing a range with the same start and end date (Closes #898) ([#1037](https://github.com/melt-ui/melt-ui/pull/1037))
+
+- Tooltip: fixed bug where tooltip content style gets reset when forceVisible is true and $open gets updated #1010 ([#1011](https://github.com/melt-ui/melt-ui/pull/1011))
+
+- Calendars: ensure dates use the same calendar as the reference value ([#1026](https://github.com/melt-ui/melt-ui/pull/1026))
+
+## 0.74.4
+
+### Patch Changes
+
+- Listbox: fixed bug preventing programmatic opening (Closes #1014) ([#1020](https://github.com/melt-ui/melt-ui/pull/1020))
+
+- fix(Calendar/Range Calendar): use `'button'` for button elements' `type` ([#1003](https://github.com/melt-ui/melt-ui/pull/1003))
+
+- fixed issues with portals and outside interactions (Closes #992) ([#1018](https://github.com/melt-ui/melt-ui/pull/1018))
+
+- Listbox: fixed bug causing `multiple` change function `curr` and `next` always being equal (Closes #1019) ([#1021](https://github.com/melt-ui/melt-ui/pull/1021))
+
+- Fixed bug where on outside interaction in several components (popover, menu, link preview, tooltip, listbox), on component unmount, the content jumps during out transition if content was mounted in an else if block (closes #1005) ([#1006](https://github.com/melt-ui/melt-ui/pull/1006))
+
+## 0.74.3
+
+### Patch Changes
+
+- Revert regressions caused by PRs #977 and #995 ([#1016](https://github.com/melt-ui/melt-ui/pull/1016))
+
+- Toolbar: set correct tabindex for buttons and links ([#1004](https://github.com/melt-ui/melt-ui/pull/1004))
+
+## 0.74.2
+
+### Patch Changes
+
+- Fix custom portal issues ([#995](https://github.com/melt-ui/melt-ui/pull/995))
+
+- Dialog: fixed interact outside pointerup/mouseup issue where the dialog would close if you clicked and dragged outside of the dialog before releasing the press (Closes: #750) ([#994](https://github.com/melt-ui/melt-ui/pull/994))
+
+- Toggle Group: fixed bug where `single` groups wouldn't focus (Closes #810) ([#990](https://github.com/melt-ui/melt-ui/pull/990))
+
+## 0.74.1
+
+### Patch Changes
+
+- Date Picker/Date Range Picker: disable trigger when picker is disabled (Closes #815) ([#989](https://github.com/melt-ui/melt-ui/pull/989))
+
+- Toast: return close element `type` attribute type as `"button"` instead of `string` ([#993](https://github.com/melt-ui/melt-ui/pull/993))
+
+- ToggleGroup: Fixes curr & next always bbeing the same value ([#983](https://github.com/melt-ui/melt-ui/pull/983))
+
+## 0.74.0
+
+### Minor Changes
+
+- Dialog: change data-state conditions ([`0c7bf6df`](https://github.com/melt-ui/melt-ui/commit/0c7bf6dfd338103f7288b84c1fc5ae1c7f8b8770))
+
+### Patch Changes
+
+- Combobox: autocomplete off ([`db53236b`](https://github.com/melt-ui/melt-ui/commit/db53236b6bac88f3a3008269e32841467885b8f3))
+
+## 0.73.0
+
+### Minor Changes
+
+- Add element type & emptyMeltElement (closes #855) ([#966](https://github.com/melt-ui/melt-ui/pull/966))
+
+## 0.72.0
+
+### Minor Changes
+
+- Hidden Input: Dispatch change events (closes #690) ([#962](https://github.com/melt-ui/melt-ui/pull/962))
+
+### Patch Changes
+
+- Standardize hidden inputs (closes #249) ([#962](https://github.com/melt-ui/melt-ui/pull/962))
+
+## 0.71.3
+
+### Patch Changes
+
+- Tooltip: fixed a bug where the content would remain open when scrolling outside (Closed: #945) ([#955](https://github.com/melt-ui/melt-ui/pull/955))
+
+## 0.71.2
+
+### Patch Changes
+
+- fix: improve dialog outside clicks/interactions ([#883](https://github.com/melt-ui/melt-ui/pull/883))
+
+- Menus: fix performance issues when many menus are used on the same page (closes: #919) ([#923](https://github.com/melt-ui/melt-ui/pull/923))
+
+- Update internal import references to be compatible with ESM ([#910](https://github.com/melt-ui/melt-ui/pull/910))
+
+## 0.71.1
+
+### Patch Changes
+
+- fix: type of type in tabs builder ([#937](https://github.com/melt-ui/melt-ui/pull/937))
+
+## 0.71.0
+
+### Minor Changes
+
+- Internal: withGet helper, increasing performance ([`51ce34d5`](https://github.com/melt-ui/melt-ui/commit/51ce34d53943888dbcfeaf694bf02ce3ac08b944))
+
+### Patch Changes
+
+- Table of Contents: fix smooth scroll and scroll offset (fixes [#920](https://github.com/melt-ui/melt-ui/issues/920)) ([#860](https://github.com/melt-ui/melt-ui/pull/860))
+
+- Select: add `type="button"` to listbox trigger (closes: #710) ([#900](https://github.com/melt-ui/melt-ui/pull/900))
+
+- Slider: Fix `thumbs` Array Type ([#911](https://github.com/melt-ui/melt-ui/pull/911))
+
+- Date/Range Field: fix: bug preventing `00` as value for minute and second segments (closes: #854) ([#893](https://github.com/melt-ui/melt-ui/pull/893))
+
 ## 0.70.0
 
 ### Minor Changes

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createDialog, melt } from '$lib/index.js';
 	import { flyAndScale } from '$docs/utils/index.js';
-	import { X } from 'lucide-svelte';
+	import { X } from '$icons/index.js';
 	import { CodeBlock } from '$docs/components/index.js';
 
 	const {
@@ -23,8 +23,8 @@
 {#if $open}
 	<div use:melt={$overlay} class="fixed inset-0 z-40 bg-black/50" />
 	<div
-		class="fixed left-[50%] top-[50%] z-50 max-h-[85vh] w-[90vw] max-w-[960px]
-    translate-x-[-50%] translate-y-[-50%] rounded-md
+		class="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[90vw] max-w-[960px]
+    -translate-x-1/2 -translate-y-1/2 rounded-md
     bg-neutral-800 p-4 shadow-lg md:p-8"
 		transition:flyAndScale={{
 			duration: 150,
@@ -48,7 +48,7 @@
                 appearance-none items-center justify-center rounded-full text-magnum-300
                 hover:bg-magnum-800/50 focus:shadow-magnum-400"
 		>
-			<X class="square-4" />
+			<X class="size-4" />
 		</button>
 	</div>
 {/if}

@@ -1,6 +1,6 @@
 import {
 	addMeltEventListener,
-	builder,
+	makeElement,
 	createElHelpers,
 	disabledAttr,
 	executeCallbacks,
@@ -14,7 +14,7 @@ import {
 	toWritableStores,
 } from '$lib/internal/helpers/index.js';
 import type { Defaults, MeltActionReturn } from '$lib/internal/types.js';
-import { derived, get, writable } from 'svelte/store';
+import { derived, writable } from 'svelte/store';
 import type { ToggleGroupEvents } from './events.js';
 import type { CreateToggleGroupProps, ToggleGroupItemProps, ToggleGroupType } from './types.js';
 
@@ -41,13 +41,13 @@ export const createToggleGroup = <T extends ToggleGroupType = 'single'>(
 	const defaultValue = withDefaults.defaultValue
 		? withDefaults.defaultValue
 		: withDefaults.type === 'single'
-		? 'undefined'
+		? undefined
 		: [];
 
 	const valueWritable = withDefaults.value ?? writable(defaultValue);
 	const value = overridable(valueWritable, withDefaults?.onValueChange);
 
-	const root = builder(name(), {
+	const root = makeElement(name(), {
 		stores: orientation,
 		returned: ($orientation) => {
 			return {
@@ -57,7 +57,7 @@ export const createToggleGroup = <T extends ToggleGroupType = 'single'>(
 		},
 	});
 
-	const item = builder(name('item'), {
+	const item = makeElement(name('item'), {
 		stores: [value, disabled, orientation, type],
 		returned: ([$value, $disabled, $orientation, $type]) => {
 			return (props: ToggleGroupItemProps) => {
@@ -89,8 +89,8 @@ export const createToggleGroup = <T extends ToggleGroupType = 'single'>(
 			if (!isHTMLElement(parentGroup)) return {};
 
 			const items = Array.from(parentGroup.querySelectorAll(selector('item')));
-			const $value = get(value);
-			const anyPressed = Array.isArray($value) ? $value.length > 0 : $value !== null;
+			const $value = value.get();
+			const anyPressed = Array.isArray($value) ? $value.length > 0 : $value ? true : false;
 
 			if (!anyPressed && items[0] === node) {
 				node.tabIndex = 0;
@@ -112,8 +112,7 @@ export const createToggleGroup = <T extends ToggleGroupType = 'single'>(
 						if ($value.includes(itemValue)) {
 							return $value.filter((i) => i !== itemValue);
 						}
-						$value.push(itemValue);
-						return $value;
+						return [...$value, itemValue];
 					}
 					return $value === itemValue ? undefined : itemValue;
 				});
@@ -130,7 +129,7 @@ export const createToggleGroup = <T extends ToggleGroupType = 'single'>(
 						handleValueUpdate();
 						return;
 					}
-					if (!get(rovingFocus)) return;
+					if (!rovingFocus.get()) return;
 
 					const el = e.currentTarget;
 					if (!isHTMLElement(el)) return;
@@ -145,7 +144,7 @@ export const createToggleGroup = <T extends ToggleGroupType = 'single'>(
 					const currentIndex = items.indexOf(el);
 
 					const dir = getElemDirection(el);
-					const $orientation = get(orientation);
+					const $orientation = orientation.get();
 					const nextKey = {
 						horizontal: dir === 'rtl' ? kbd.ARROW_LEFT : kbd.ARROW_RIGHT,
 						vertical: kbd.ARROW_DOWN,
@@ -156,7 +155,7 @@ export const createToggleGroup = <T extends ToggleGroupType = 'single'>(
 						vertical: kbd.ARROW_UP,
 					}[$orientation ?? 'horizontal'];
 
-					const $loop = get(loop);
+					const $loop = loop.get();
 
 					if (e.key === nextKey) {
 						e.preventDefault();

@@ -1,5 +1,6 @@
 import {
-	builder,
+	addMeltEventListener,
+	makeElement,
 	createElHelpers,
 	executeCallbacks,
 	isHTMLElement,
@@ -7,13 +8,13 @@ import {
 	omit,
 	overridable,
 	toWritableStores,
-	addMeltEventListener,
 } from '$lib/internal/helpers/index.js';
 import type { Defaults, MeltActionReturn } from '$lib/internal/types.js';
-import { derived, get, writable, readonly } from 'svelte/store';
+import { derived, readonly, writable } from 'svelte/store';
+import type { PaginationEvents } from './events.js';
 import { getPageItems } from './helpers.js';
 import type { CreatePaginationProps, Page } from './types.js';
-import type { PaginationEvents } from './events.js';
+import { withGet } from '$lib/internal/helpers/withGet.js';
 
 const defaults = {
 	perPage: 1,
@@ -34,7 +35,7 @@ export function createPagination(props: CreatePaginationProps) {
 
 	const { perPage, siblingCount, count } = options;
 
-	const totalPages = derived([count, perPage], ([$count, $perPage]) => {
+	const totalPages = withGet.derived([count, perPage], ([$count, $perPage]) => {
 		return Math.ceil($count / $perPage);
 	});
 
@@ -44,10 +45,11 @@ export function createPagination(props: CreatePaginationProps) {
 		return { start, end };
 	});
 
-	const root = builder(name(), {
-		returned: () => ({
-			'data-scope': 'pagination',
-		}),
+	const root = makeElement(name(), {
+		returned: () =>
+			({
+				'data-scope': 'pagination',
+			} as const),
 	});
 
 	const pages = derived([page, totalPages, siblingCount], ([$page, $totalPages, $siblingCount]) => {
@@ -90,7 +92,7 @@ export function createPagination(props: CreatePaginationProps) {
 		}
 	};
 
-	const pageTrigger = builder(name('page'), {
+	const pageTrigger = makeElement(name('page'), {
 		stores: page,
 		returned: ($page) => {
 			return (pageItem: Page) => {
@@ -98,7 +100,7 @@ export function createPagination(props: CreatePaginationProps) {
 					'aria-label': `Page ${pageItem.value}`,
 					'data-value': pageItem.value,
 					'data-selected': pageItem.value === $page ? '' : undefined,
-				};
+				} as const;
 			};
 		},
 		action: (node: HTMLElement): MeltActionReturn<PaginationEvents['pageTrigger']> => {
@@ -117,7 +119,7 @@ export function createPagination(props: CreatePaginationProps) {
 		},
 	});
 
-	const prevButton = builder(name('prev'), {
+	const prevButton = makeElement(name('prev'), {
 		stores: page,
 		returned: ($page) => {
 			return {
@@ -139,7 +141,7 @@ export function createPagination(props: CreatePaginationProps) {
 		},
 	});
 
-	const nextButton = builder(name('next'), {
+	const nextButton = makeElement(name('next'), {
 		stores: [page, totalPages],
 		returned: ([$page, $totalPages]) => {
 			return {
@@ -150,7 +152,7 @@ export function createPagination(props: CreatePaginationProps) {
 		action: (node: HTMLElement): MeltActionReturn<PaginationEvents['nextButton']> => {
 			const unsub = executeCallbacks(
 				addMeltEventListener(node, 'click', () => {
-					const $totalPages = get(totalPages);
+					const $totalPages = totalPages.get();
 					page.update((p) => Math.min(p + 1, $totalPages));
 				}),
 				addMeltEventListener(node, 'keydown', keydown)

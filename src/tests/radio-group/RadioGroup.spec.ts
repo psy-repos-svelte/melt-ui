@@ -1,6 +1,6 @@
-import type { CreateRadioGroupProps } from '$lib';
+import type { CreateRadioGroupProps } from '$lib/index.js';
 import { render } from '@testing-library/svelte';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { describe, it } from 'vitest';
 import { testKbd as kbd } from '../utils.js';
@@ -83,5 +83,10 @@ describe('Radio Group', () => {
 		await user.keyboard(kbd.ARROW_DOWN);
 		expect(els[2]).toHaveFocus();
 		expect(els[1]).not.toHaveFocus();
+	});
+
+	it('has specified name on hidden input', async () => {
+		const { getByTestId } = setup({ name: 'name' });
+		expect(getByTestId('input')).toHaveAttribute('name', 'name');
 	});
 });

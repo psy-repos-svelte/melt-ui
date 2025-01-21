@@ -1,6 +1,6 @@
 import {
 	addMeltEventListener,
-	builder,
+	makeElement,
 	createElHelpers,
 	disabledAttr,
 	executeCallbacks,
@@ -17,7 +17,7 @@ import {
 	toWritableStores,
 } from '$lib/internal/helpers/index.js';
 import type { Defaults, MeltActionReturn } from '$lib/internal/types.js';
-import { get, writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 import type { TabsEvents } from './events.js';
 import type { CreateTabsProps, TabsTriggerProps } from './types.js';
 
@@ -42,27 +42,27 @@ export function createTabs(props?: CreateTabsProps) {
 	const valueWritable = withDefaults.value ?? writable(withDefaults.defaultValue);
 	const value = overridable(valueWritable, withDefaults?.onValueChange);
 
-	let ssrValue = withDefaults.defaultValue ?? get(value);
+	let ssrValue = withDefaults.defaultValue ?? value.get();
 
 	// Root
-	const root = builder(name(), {
+	const root = makeElement(name(), {
 		stores: orientation,
 		returned: ($orientation) => {
 			return {
 				'data-orientation': $orientation,
-			};
+			} as const;
 		},
 	});
 
 	// List
-	const list = builder(name('list'), {
+	const list = makeElement(name('list'), {
 		stores: orientation,
 		returned: ($orientation) => {
 			return {
 				role: 'tablist',
 				'aria-orientation': $orientation,
 				'data-orientation': $orientation,
-			};
+			} as const;
 		},
 	});
 
@@ -74,7 +74,7 @@ export function createTabs(props?: CreateTabsProps) {
 		}
 	};
 
-	const trigger = builder(name('trigger'), {
+	const trigger = makeElement(name('trigger'), {
 		stores: [value, orientation],
 		returned: ([$value, $orientation]) => {
 			return (props: TabsTriggerProps) => {
@@ -98,7 +98,7 @@ export function createTabs(props?: CreateTabsProps) {
 					'data-orientation': $orientation,
 					'data-disabled': disabledAttr(disabled),
 					disabled: disabledAttr(disabled),
-				};
+				} as const;
 			};
 		},
 		action: (node: HTMLElement): MeltActionReturn<TabsEvents['trigger']> => {
@@ -107,7 +107,7 @@ export function createTabs(props?: CreateTabsProps) {
 					const disabled = node.dataset.disabled === 'true';
 					const tabValue = node.dataset.value;
 
-					if (get(activateOnFocus) && !disabled && tabValue !== undefined) {
+					if (activateOnFocus.get() && !disabled && tabValue !== undefined) {
 						value.set(tabValue);
 					}
 				}),
@@ -137,7 +137,7 @@ export function createTabs(props?: CreateTabsProps) {
 					const rootEl = el.closest(selector());
 					if (!isHTMLElement(rootEl)) return;
 
-					const $loop = get(loop);
+					const $loop = loop.get();
 
 					const triggers = Array.from(rootEl.querySelectorAll('[role="tab"]')).filter(
 						(trigger): trigger is HTMLElement => isHTMLElement(trigger)
@@ -146,7 +146,7 @@ export function createTabs(props?: CreateTabsProps) {
 					const triggerIdx = enabledTriggers.findIndex((el) => el === e.target);
 
 					const dir = getElemDirection(rootEl);
-					const { nextKey, prevKey } = getDirectionalKeys(dir, get(orientation));
+					const { nextKey, prevKey } = getDirectionalKeys(dir, orientation.get());
 
 					if (e.key === nextKey) {
 						e.preventDefault();
@@ -178,7 +178,7 @@ export function createTabs(props?: CreateTabsProps) {
 	});
 
 	// Content
-	const content = builder(name('content'), {
+	const content = makeElement(name('content'), {
 		stores: value,
 		returned: ($value) => {
 			return (tabValue: string) => {
@@ -194,7 +194,7 @@ export function createTabs(props?: CreateTabsProps) {
 						? undefined
 						: true,
 					tabindex: 0,
-				};
+				} as const;
 			};
 		},
 	});
